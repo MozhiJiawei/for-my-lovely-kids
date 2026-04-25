@@ -1,0 +1,109 @@
+.page {
+  min-height: 100vh;
+  box-sizing: border-box;
+  padding: 40rpx;
+  background: #f7faf5;
+}
+
+.header {
+  padding-bottom: 28rpx;
+}
+
+.eyebrow {
+  color: #15803d;
+  font-size: 24rpx;
+  font-weight: 700;
+}
+
+.title {
+  margin-top: 8rpx;
+  color: #1f2a24;
+  font-size: 44rpx;
+  font-weight: 800;
+  line-height: 1.25;
+}
+
+.meta {
+  margin-top: 12rpx;
+  color: #5f6f65;
+  font-size: 26rpx;
+}
+
+.scope {
+  margin-top: 16rpx;
+  color: #536158;
+  font-size: 26rpx;
+  line-height: 1.55;
+}
+
+.section {
+  margin-top: 28rpx;
+}
+
+.section-title {
+  margin-bottom: 16rpx;
+  color: #23342a;
+  font-size: 30rpx;
+  font-weight: 700;
+}
+
+.scenario-status {
+  flex-shrink: 0;
+  color: #15803d;
+  font-size: 24rpx;
+  font-weight: 700;
+}
+
+.scenario {
+  margin-bottom: 12rpx;
+  padding: 24rpx;
+  border: 1rpx solid #d9e7dc;
+  border-radius: 8rpx;
+  background: #ffffff;
+}
+
+.scenario-head {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+}
+
+.scenario-id {
+  flex-shrink: 0;
+  color: #15803d;
+  font-size: 26rpx;
+  font-weight: 800;
+}
+
+.scenario-title {
+  flex: 1;
+  color: #27352d;
+  font-size: 26rpx;
+  line-height: 1.45;
+}
+
+.scenario-line {
+  margin-top: 14rpx;
+  color: #536158;
+  font-size: 25rpx;
+  line-height: 1.55;
+}
+
+.screenshot {
+  width: 100%;
+  border: 1rpx solid #d9e7dc;
+  border-radius: 8rpx;
+  background: #ffffff;
+}
+
+.log-box {
+  padding: 20rpx;
+  border-radius: 8rpx;
+  background: #1f2a24;
+}
+
+.log-line {
+  color: #d9f99d;
+  font-size: 24rpx;
+  line-height: 1.55;
+}

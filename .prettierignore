@@ -1,0 +1,9 @@
+node_modules/
+dist/
+coverage/
+tmp/
+apps/miniprogram/miniprogram_npm/
+apps/miniprogram/e2e-artifacts/
+docs/brainstorms/
+docs/plans/
+pnpm-lock.yaml

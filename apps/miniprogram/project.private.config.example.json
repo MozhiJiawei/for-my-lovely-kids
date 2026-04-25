@@ -1,0 +1,7 @@
+{
+  "appid": "replace-with-your-local-appid",
+  "projectname": "red-flower-garden-local",
+  "setting": {
+    "compileHotReLoad": true
+  }
+}
