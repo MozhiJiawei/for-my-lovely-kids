@@ -1,0 +1,26 @@
+{
+  "appid": "touristappid",
+  "compileType": "miniprogram",
+  "miniprogramRoot": "apps/miniprogram/",
+  "setting": {
+    "useCompilerPlugins": ["typescript"],
+    "babelSetting": {
+      "ignore": [],
+      "disablePlugins": [],
+      "outputPath": ""
+    },
+    "packNpmManually": true,
+    "packNpmRelationList": [
+      {
+        "packageJsonPath": "apps/miniprogram/package.json",
+        "miniprogramNpmDistDir": "apps/miniprogram/"
+      }
+    ],
+    "urlCheck": true,
+    "es6": true,
+    "enhance": true,
+    "postcss": true,
+    "minified": true
+  },
+  "condition": {}
+}

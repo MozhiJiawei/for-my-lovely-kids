@@ -1,0 +1,11 @@
+{
+  "pages": ["pages/smoke/index", "pages/e2e-report/index"],
+  "window": {
+    "navigationBarTitleText": "小红花花园",
+    "navigationBarBackgroundColor": "#ffffff",
+    "navigationBarTextStyle": "black",
+    "backgroundColor": "#f7faf5"
+  },
+  "style": "v2",
+  "sitemapLocation": "sitemap.json"
+}

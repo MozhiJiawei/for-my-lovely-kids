@@ -1,0 +1,39 @@
+<view class="page">
+  <view class="header">
+    <view class="eyebrow">人工验收</view>
+    <view class="title">E2E 测试报告</view>
+    <view class="meta">日期：{{reportDate}}</view>
+    <view class="scope">{{reportScope}}</view>
+  </view>
+
+  <view class="section">
+    <view class="section-title">E2E 用例</view>
+    <view class="scenario" wx:for="{{cases}}" wx:key="id">
+      <view class="scenario-head">
+        <text class="scenario-id">{{item.id}}</text>
+        <text class="scenario-title">{{item.title}}</text>
+        <text class="scenario-status">{{item.status}}</text>
+      </view>
+      <view class="scenario-line">覆盖：{{item.covers}}</view>
+      <view class="scenario-line">准备：{{item.setup}}</view>
+      <view class="scenario-line">操作：{{item.action}}</view>
+      <view class="scenario-line">期望：{{item.expected}}</view>
+      <view class="scenario-line">证据：{{item.evidence}}</view>
+    </view>
+  </view>
+
+  <view class="section">
+    <view class="section-title">首页截图</view>
+    <image wx:if="{{screenshotPath}}" class="screenshot" mode="widthFix" src="{{screenshotPath}}"></image>
+    <view wx:else class="scenario-line">尚未生成首页截图。</view>
+    <view wx:if="{{screenshotPath}}" class="scenario-line">截图路径：{{screenshotPath}}</view>
+  </view>
+
+  <view class="section">
+    <view class="section-title">关键日志</view>
+    <view class="log-box">
+      <view class="log-line" wx:for="{{logLines}}" wx:key="*this">{{item}}</view>
+    </view>
+    <view class="scenario-line">完整日志：{{logPath}}</view>
+  </view>
+</view>

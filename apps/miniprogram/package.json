@@ -1,0 +1,14 @@
+{
+  "name": "@red-flower-garden/miniprogram",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "pack:npm": "node scripts/pack-npm.mjs"
+  },
+  "devDependencies": {
+    "miniprogram-api-typings": "^4.0.8",
+    "miniprogram-ci": "^2.1.26",
+    "typescript": "^5.8.3"
+  }
+}

@@ -1,0 +1,9 @@
+{
+  "desc": "Sitemap for the Little Red Flower Garden experience prototype.",
+  "rules": [
+    {
+      "action": "allow",
+      "page": "*"
+    }
+  ]
+}

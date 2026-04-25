@@ -1,0 +1,6 @@
+<view class="page">
+  <view class="title">小红花花园</view>
+  <view class="body">工程骨架已准备好</view>
+  <view id="e2e-home-marker" class="e2e-marker">E2E_HOME_READY</view>
+  <button class="report-button" bindtap="openReport">查看验收报告</button>
+</view>

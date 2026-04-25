@@ -1,6 +1,6 @@
 ---
 date: 2026-04-25
-status: active
+status: completed
 type: implementation-plan
 sequence: 1
 topic: red-flower-garden-engineering-foundation
@@ -62,9 +62,9 @@ Requirements carried from the origin document:
     apps/
       api/
       miniprogram/
-        project.config.json
         sitemap.json
         tsconfig.json
+    project.config.json
     packages/
       domain/
     docs/
@@ -99,23 +99,23 @@ Requirements carried from the origin document:
 - Create: `tsconfig.base.json`
 - Create: `apps/api/package.json`
 - Create: `apps/miniprogram/package.json`
-- Create: `apps/miniprogram/project.config.json`
 - Create: `apps/miniprogram/project.private.config.example.json`
 - Create: `apps/miniprogram/sitemap.json`
 - Create: `apps/miniprogram/tsconfig.json`
 - Create: `packages/domain/package.json`
+- Create: `project.config.json`
 - Create: `README.md`
 
 **Approach:**
 - Use workspaces so each app/package can own its dependencies while sharing scripts and TypeScript settings.
 - Define the architectural boundary in `README.md`: domain rules in `packages/domain`, API orchestration in `apps/api`, WeChat presentation in `apps/miniprogram`.
-- Configure `apps/miniprogram/project.config.json` with a clear `miniprogramRoot`, TypeScript support, npm build expectations, and an AppID placeholder strategy suitable for local development.
+- Configure root `project.config.json` as the single WeChat Developer Tools entry with `miniprogramRoot` pointing at `apps/miniprogram/`, TypeScript support, npm build expectations, and an AppID placeholder strategy suitable for local development.
 - Keep machine/user-specific WeChat Developer Tools settings out of git via `project.private.config.example.json` and documented local setup.
 
 **Test scenarios:**
 - Smoke: Installing dependencies from the repo root resolves all workspaces.
 - Smoke: A root script can delegate to workspace scripts without path-specific manual setup.
-- Smoke: WeChat Developer Tools can open `apps/miniprogram` using the committed project metadata after the developer supplies local private config.
+- Smoke: WeChat Developer Tools can open the repository root using the committed project metadata after the developer supplies local private config.
 
 **Verification:**
 - The repository has clear app/package boundaries and a documented startup/testing path.
@@ -194,8 +194,8 @@ Requirements carried from the origin document:
 
 **Files:**
 - Modify: `apps/miniprogram/package.json`
-- Modify: `apps/miniprogram/project.config.json`
 - Modify: `apps/miniprogram/tsconfig.json`
+- Modify: `project.config.json`
 - Modify: `README.md`
 - Create: `docs/development/wechat-miniprogram-setup.md`
 
@@ -225,12 +225,11 @@ Requirements carried from the origin document:
 
 **Files:**
 - Create: `docs/e2e/red-flower-garden-acceptance.md`
-- Create: `tests/e2e/api/README.md`
-- Create: `tests/e2e/miniprogram/README.md`
+- Create: `tests/e2e/miniprogram/devtools-load.mjs`
 
 **Approach:**
 - Document acceptance scenarios in plain Chinese so a parent/developer can execute them manually.
-- Reserve API E2E and Mini Program UI E2E locations without pretending all tooling is ready.
+- Keep a single automated E2E entry under `tests/e2e/`; avoid placeholder test directories or duplicate script entrypoints.
 
 **Test scenarios:**
 - Documentation: AE1 through AE4 are listed as named scenarios with setup, action, and expected result.

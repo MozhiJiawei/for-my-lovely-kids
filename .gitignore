@@ -1,0 +1,14 @@
+node_modules/
+dist/
+coverage/
+tmp/
+.env
+.env.*
+!.env.example
+apps/miniprogram/miniprogram_npm/
+apps/miniprogram/e2e-artifacts/
+project.private.config.json
+apps/miniprogram/project.private.config.json
+apps/miniprogram/private.*
+prisma/dev.db
+prisma/dev.db-journal
