@@ -4,7 +4,7 @@ import { buildApp } from "./app";
 
 describe("GET /health", () => {
   it("returns a successful smoke response", async () => {
-    const app = buildApp();
+    const app = buildApp({ skipDataSetup: true });
 
     const response = await app.inject({
       method: "GET",

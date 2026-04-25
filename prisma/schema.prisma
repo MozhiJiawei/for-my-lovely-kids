@@ -6,3 +6,74 @@ datasource db {
   provider = "sqlite"
   url      = env("DATABASE_URL")
 }
+
+model Task {
+  id          String   @id
+  title       String
+  flowerValue Int
+  kind        String
+  status      String
+  createdAt   DateTime
+  updatedAt   DateTime
+
+  submissions TaskSubmission[]
+}
+
+model TaskSubmission {
+  id                  String    @id
+  taskId              String
+  titleSnapshot       String
+  flowerValueSnapshot Int
+  status              String
+  submittedAt         DateTime
+  confirmedAt         DateTime?
+
+  task Task @relation(fields: [taskId], references: [id])
+}
+
+model Wish {
+  id         String   @id
+  title      String
+  flowerCost Int
+  status     String
+  sortOrder  Int
+  createdAt  DateTime
+  updatedAt  DateTime
+
+  redemptions WishRedemption[]
+}
+
+model WishRedemption {
+  id                 String    @id
+  wishId             String
+  titleSnapshot      String
+  flowerCostSnapshot Int
+  status             String
+  requestedAt        DateTime
+  approvedAt         DateTime?
+
+  wish Wish @relation(fields: [wishId], references: [id])
+}
+
+model RedFlowerBalance {
+  id         String   @id
+  available  Int
+  cumulative Int
+  updatedAt  DateTime
+}
+
+model RedFlowerLedgerEntry {
+  id              String   @id
+  type            String
+  deltaAvailable  Int
+  deltaCumulative Int
+  occurredAt      DateTime
+  sourceId        String
+}
+
+model MemorialDecoration {
+  id               String   @id
+  wishRedemptionId String
+  kind             String
+  createdAt        DateTime
+}

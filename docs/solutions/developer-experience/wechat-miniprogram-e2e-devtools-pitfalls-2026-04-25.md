@@ -72,7 +72,7 @@ The fix is to make every required external action explicit in the script and vis
 - When `cli auto` succeeds but screenshots hang, return late, or show a gray DevTools surface.
 - When a test only passes after someone clicks the simulator or APP pane.
 - When a report needs both code-level assertions and human-reviewable screenshots.
-- When wiring E2E into `ci:local` or another local gate that depends on an installed DevTools GUI.
+- When wiring E2E into the single `ci` quality gate that depends on an installed DevTools GUI.
 
 ## Examples
 
@@ -128,14 +128,14 @@ return runPnpm(
 
 Do not blindly kill every DevTools process after starting a new run. Snapshot existing DevTools PIDs first, call `quit`, then terminate only those pre-existing PIDs. Otherwise, the cleanup step can kill the freshly launched automation session.
 
-### Make the local gate explicit
+### Make the CI gate explicit
 
-The real local gate should run the actual E2E script, not only a weaker DevTools presence check:
+The single CI gate should run the actual E2E script, not only a weaker DevTools presence check:
 
 ```json
 {
   "scripts": {
-    "ci:local": "eslint . --max-warnings=0 && prettier . --check && tsc -p packages/domain/tsconfig.json --noEmit && tsc -p apps/api/tsconfig.json --noEmit && tsc -p apps/miniprogram/tsconfig.json --noEmit && vitest run && node scripts/run-e2e-devtools-load.mjs",
+    "ci": "eslint . --max-warnings=0 && prettier . --check && tsc -p packages/domain/tsconfig.json --noEmit && tsc -p apps/api/tsconfig.json --noEmit && tsc -p apps/miniprogram/tsconfig.json --noEmit && vitest run && node scripts/run-e2e-devtools-load.mjs",
     "e2e": "node scripts/run-e2e-devtools-load.mjs"
   }
 }

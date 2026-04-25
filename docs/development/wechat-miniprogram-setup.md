@@ -78,13 +78,15 @@ Until those are decided, default CI validates the project with linting, formatti
 
 ## Developer Tools Load Check
 
-Run the local CI gate after installing WeChat Developer Tools:
+Run the single project CI gate after installing WeChat Developer Tools:
 
 ```bash
-corepack pnpm run ci:local
+corepack pnpm run ci
 ```
 
-This invokes the real startup E2E. The script runs WeChat Developer Tools against the repository root, enables automation, launches `/pages/smoke/index`, asserts that `#e2e-home-marker` has text `E2E_HOME_READY`, and writes human-review evidence to `tmp/e2e/`.
+This invokes the real startup E2E after lint, formatting, typecheck, and Vitest. The script runs WeChat Developer Tools against the repository root, enables automation, launches `/pages/smoke/index`, asserts that `#e2e-home-marker` has text `E2E_HOME_READY`, and writes human-review evidence to `tmp/e2e/`.
+
+If WeChat Developer Tools is not installed, the E2E step skips by default with an explicit message. On a Windows or macOS self-hosted runner with Developer Tools installed, set `WECHAT_DEVTOOLS_REQUIRED=1` to make the E2E step required.
 
 If Developer Tools is installed in a non-standard path, set:
 

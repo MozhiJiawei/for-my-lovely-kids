@@ -1,0 +1,162 @@
+<view class="page">
+  <view class="header">
+    <view class="eyebrow">领域模型临时验证</view>
+    <view class="title">小红花原型</view>
+    <view class="message">{{message}}</view>
+  </view>
+
+  <view class="section">
+    <view class="section-title">服务</view>
+    <input class="input" value="{{apiBaseUrl}}" bindinput="updateApiBaseUrl" placeholder="API 地址" />
+    <input class="input" value="{{familyToken}}" bindinput="updateFamilyToken" placeholder="家庭 token" />
+    <input class="input" value="{{parentToken}}" bindinput="updateParentToken" placeholder="家长 token" />
+    <button class="button primary full" loading="{{loading}}" bindtap="refreshState">读取服务状态</button>
+    <button class="button full" loading="{{loading}}" bindtap="resetTestData">重置测试数据</button>
+    <view class="status">{{loadSummary}}</view>
+    <view class="readonly-line">已加载任务：{{taskOptions.length}} 个</view>
+    <view class="readonly-line">已加载愿望：{{wishOptions.length}} 个</view>
+  </view>
+
+  <view class="balance-row">
+    <view class="balance-box">
+      <view class="balance-label">可用小红花</view>
+      <view class="balance-value">{{availableFlowers}}</view>
+    </view>
+    <view class="balance-box">
+      <view class="balance-label">累计小红花</view>
+      <view class="balance-value">{{cumulativeFlowers}}</view>
+    </view>
+    <view class="balance-box">
+      <view class="balance-label">纪念装饰</view>
+      <view class="balance-value">{{decorationCount}}</view>
+    </view>
+  </view>
+
+  <view class="section">
+    <view class="section-title">任务</view>
+    <input class="input" value="{{newTaskTitle}}" bindinput="updateNewTaskTitle" placeholder="新任务名称" />
+    <input
+      class="input"
+      type="number"
+      value="{{newTaskFlowerValue}}"
+      bindinput="updateNewTaskFlowerValue"
+      placeholder="奖励小红花"
+    />
+    <radio-group class="radio-row" bindchange="updateNewTaskKind">
+      <label class="radio-label">
+        <radio value="repeating" checked="{{newTaskKind === 'repeating'}}" />
+        重复任务
+      </label>
+      <label class="radio-label">
+        <radio value="one_time" checked="{{newTaskKind === 'one_time'}}" />
+        单次任务
+      </label>
+    </radio-group>
+    <button class="button full" loading="{{loading}}" bindtap="saveTask">保存任务</button>
+    <button class="button full" loading="{{loading}}" bindtap="refreshState">重新读取任务列表</button>
+
+    <view class="option-title">选择任务</view>
+    <view wx:if="{{taskOptions.length === 0}}" class="empty">暂无任务，请先读取服务状态或保存任务。</view>
+    <view
+      wx:for="{{taskOptions}}"
+      wx:key="id"
+      data-index="{{index}}"
+      bindtap="selectTask"
+      class="option-item {{item.selected ? 'option-selected' : ''}}"
+    >
+      <view class="option-main">{{item.title}}</view>
+      <view class="option-meta">{{item.flowerValue}} 朵 · {{item.statusText}}</view>
+    </view>
+    <view class="readonly-line">任务：{{taskTitle}}</view>
+    <view class="readonly-line">奖励：{{taskFlowerValue}} 朵</view>
+    <view class="status">状态：{{taskStatusText}}</view>
+    <view class="button-row">
+      <button class="button primary" loading="{{loading}}" bindtap="submitTask">我完成啦</button>
+      <button class="button" loading="{{loading}}" bindtap="confirmSelectedTasks">批量确认任务</button>
+    </view>
+
+    <view class="option-title">待家长确认</view>
+    <view wx:if="{{pendingSubmissions.length === 0}}" class="empty">暂无待确认任务。</view>
+    <view
+      wx:for="{{pendingSubmissions}}"
+      wx:key="id"
+      data-id="{{item.id}}"
+      bindtap="togglePendingSubmission"
+      class="option-item {{item.selected ? 'option-selected' : ''}}"
+    >
+      <view class="option-main">{{item.title}}</view>
+      <view class="option-meta">{{item.flowerValue}} 朵 · {{item.selected ? "已选择" : "未选择"}}</view>
+    </view>
+
+    <view class="option-title">已确认任务</view>
+    <view wx:if="{{confirmedSubmissions.length === 0}}" class="empty">暂无已确认任务。</view>
+    <view wx:for="{{confirmedSubmissions}}" wx:key="id" class="option-item">
+      <view class="option-main">{{item.title}}</view>
+      <view class="option-meta">{{item.flowerValue}} 朵 · 已确认</view>
+    </view>
+  </view>
+
+  <view class="section">
+    <view class="section-title">愿望</view>
+    <input class="input" value="{{newWishTitle}}" bindinput="updateNewWishTitle" placeholder="新愿望名称" />
+    <input
+      class="input"
+      type="number"
+      value="{{newWishFlowerCost}}"
+      bindinput="updateNewWishFlowerCost"
+      placeholder="需要小红花"
+    />
+    <button class="button full" loading="{{loading}}" bindtap="saveWish">保存愿望</button>
+    <button class="button full" loading="{{loading}}" bindtap="refreshState">重新读取愿望列表</button>
+
+    <view class="option-title">选择愿望</view>
+    <view wx:if="{{wishOptions.length === 0}}" class="empty">暂无愿望，请先读取服务状态或保存愿望。</view>
+    <view
+      wx:for="{{wishOptions}}"
+      wx:key="id"
+      data-index="{{index}}"
+      bindtap="selectWish"
+      class="option-item {{item.selected ? 'option-selected' : ''}}"
+    >
+      <view class="option-main">{{item.title}}</view>
+      <view class="option-meta">{{item.flowerCost}} 朵 · {{item.statusText}}</view>
+    </view>
+    <view class="readonly-line">愿望：{{wishTitle}}</view>
+    <view class="readonly-line">需要：{{wishFlowerCost}} 朵</view>
+    <view class="status">状态：{{wishStatusText}}</view>
+    <button class="button primary full" loading="{{loading}}" bindtap="redeemWish">兑换愿望</button>
+
+    <view class="option-title">待处理兑换</view>
+    <view wx:if="{{pendingRedemptions.length === 0}}" class="empty">暂无待处理兑换。</view>
+    <view
+      wx:for="{{pendingRedemptions}}"
+      wx:key="id"
+      data-id="{{item.id}}"
+      bindtap="selectPendingRedemption"
+      class="option-item {{item.selected ? 'option-selected' : ''}}"
+    >
+      <view class="option-main">{{item.title}}</view>
+      <view class="option-meta">{{item.flowerCost}} 朵 · {{item.selected ? "已选择" : "未选择"}}</view>
+    </view>
+
+    <view class="option-title">已实现愿望</view>
+    <view wx:if="{{approvedRedemptions.length === 0}}" class="empty">暂无已实现愿望。</view>
+    <view wx:for="{{approvedRedemptions}}" wx:key="id" class="option-item">
+      <view class="option-main">{{item.title}}</view>
+      <view class="option-meta">{{item.flowerCost}} 朵 · 已实现</view>
+    </view>
+
+    <view class="option-title">纪念装饰</view>
+    <view wx:if="{{decorations.length === 0}}" class="empty">暂无纪念装饰。</view>
+    <view wx:for="{{decorations}}" wx:key="id" class="option-item">
+      <view class="option-main">愿望纪念装饰</view>
+      <view class="option-meta">来自兑换：{{item.wishRedemptionId}}</view>
+    </view>
+  </view>
+
+  <view class="section">
+    <view class="section-title">红花流水</view>
+    <view wx:if="{{ledgerLines.length === 0}}" class="empty">还没有红花变化。</view>
+    <view wx:for="{{ledgerLines}}" wx:key="*this" class="ledger-line">{{item}}</view>
+  </view>
+</view>

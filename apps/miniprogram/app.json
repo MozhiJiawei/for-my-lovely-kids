@@ -1,5 +1,5 @@
 {
-  "pages": ["pages/smoke/index", "pages/e2e-report/index"],
+  "pages": ["pages/prototype/index", "pages/smoke/index", "pages/e2e-report/index"],
   "window": {
     "navigationBarTitleText": "小红花花园",
     "navigationBarBackgroundColor": "#ffffff",

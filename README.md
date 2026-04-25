@@ -33,13 +33,7 @@ corepack pnpm run ci
 
 This runs linting, formatting checks, TypeScript checks, and tests. GitHub Actions runs the same gate on pushes to `main` and pull requests.
 
-To also verify that the installed WeChat Developer Tools can load the Mini Program project:
-
-```bash
-corepack pnpm run ci:local
-```
-
-The local check runs the real startup E2E: it uses WeChat Developer Tools automation to launch the Mini Program, assert the `E2E_HOME_READY` home marker, and generate human-review evidence under `tmp/e2e/`. If the tool is installed in a non-standard location, set `WECHAT_DEVTOOLS_CLI` to the full `cli.bat` or `cli` path.
+The same gate also invokes the real Mini Program startup E2E. It uses WeChat Developer Tools automation to launch the Mini Program, assert the `E2E_HOME_READY` home marker, and generate human-review evidence under `tmp/e2e/`. If Developer Tools is not installed, this E2E step skips by default with an explicit message. If the tool is installed in a non-standard location, set `WECHAT_DEVTOOLS_CLI` to the full `cli.bat` or `cli` path.
 
 GitHub Actions also runs `e2e`. Hosted runners normally skip it because WeChat Developer Tools is not installed there. On a Windows or macOS runner with Developer Tools installed, set `WECHAT_DEVTOOLS_REQUIRED=1` to make missing/unusable Developer Tools fail CI.
 
