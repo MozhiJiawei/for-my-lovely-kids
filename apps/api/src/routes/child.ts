@@ -2,13 +2,16 @@ import { randomUUID } from "node:crypto";
 
 import {
   approveWishRedemption,
+  confirmTaskSubmission,
   requestWishRedemption,
   submitTask,
+  type RedFlowerKind,
 } from "@red-flower-garden/domain";
 import type { FastifyInstance } from "fastify";
 
 import { assertPrototypeAuth } from "../auth/prototype-auth";
 import {
+  isDuplicateTaskCompletionPersistenceError,
   loadDomainState,
   saveTaskBookAndRedFlowers,
   saveWishBookRedFlowersAndGarden,
@@ -21,6 +24,18 @@ type SubmitTaskBody = {
 type RequestWishBody = {
   wishId?: string;
 };
+
+const flowerKinds: RedFlowerKind[] = ["coral", "sunny", "berry", "sky"];
+
+function chooseFlowerKind(seed: string): RedFlowerKind {
+  let hash = 0;
+
+  for (const char of seed) {
+    hash = Math.imul(hash ^ char.charCodeAt(0), 0x45d9f3b);
+  }
+
+  return flowerKinds[Math.abs(hash) % flowerKinds.length]!;
+}
 
 export async function registerChildRoutes(app: FastifyInstance): Promise<void> {
   app.post<{ Body: SubmitTaskBody }>("/api/child/task-submissions", async (request, reply) => {
@@ -41,25 +56,51 @@ export async function registerChildRoutes(app: FastifyInstance): Promise<void> {
 
     const now = new Date().toISOString();
 
-    const result = await app.prisma.$transaction(async (tx) => {
-      const state = await loadDomainState(tx);
-      const next = submitTask(state.taskBook, {
-        taskId,
-        submissionId: randomUUID(),
-        submittedAt: now,
-      });
+    let result;
 
-      if (!next.ok) {
-        return next;
+    try {
+      result = await app.prisma.$transaction(async (tx) => {
+        const state = await loadDomainState(tx);
+        const submitted = submitTask(state.taskBook, {
+          taskId,
+          submissionId: randomUUID(),
+          submittedAt: now,
+        });
+
+        if (!submitted.ok) {
+          return submitted;
+        }
+
+        const confirmed = confirmTaskSubmission(submitted.value.taskBook, state.redFlowers, {
+          submissionId: submitted.value.submission.id,
+          confirmedAt: now,
+          ledgerEntryId: randomUUID(),
+          flowerKind: chooseFlowerKind(submitted.value.submission.id),
+        });
+
+        if (!confirmed.ok) {
+          return confirmed;
+        }
+
+        await saveTaskBookAndRedFlowers(tx, {
+          taskBook: confirmed.value.taskBook,
+          redFlowers: confirmed.value.redFlowers,
+        });
+
+        return confirmed;
+      });
+    } catch (error) {
+      if (isDuplicateTaskCompletionPersistenceError(error)) {
+        return reply.code(400).send({
+          error: {
+            code: "TASK_ALREADY_CONFIRMED",
+            message: "Task has already been completed for this day.",
+          },
+        });
       }
 
-      await saveTaskBookAndRedFlowers(tx, {
-        taskBook: next.value.taskBook,
-        redFlowers: state.redFlowers,
-      });
-
-      return next;
-    });
+      throw error;
+    }
 
     if (!result.ok) {
       return reply.code(400).send({ error: result.error });
@@ -160,7 +201,6 @@ export async function registerChildRoutes(app: FastifyInstance): Promise<void> {
             redemptionId: requested.value.redemption.id,
             approvedAt: now,
             ledgerEntryId: randomUUID(),
-            decorationId: randomUUID(),
           },
         );
 

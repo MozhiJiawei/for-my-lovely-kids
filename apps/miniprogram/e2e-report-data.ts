@@ -1,5 +1,5 @@
 export const e2eReport = {
-  reportDate: "2026-04-25T16:00:37.159Z",
+  reportDate: "2026-05-10T17:06:36.564Z",
   reportScope: "当前唯一真实 E2E 用例：微信开发者工具加载仓库根目录并显示小程序首页。",
   screenshotPath: "/e2e-artifacts/devtools-home.png",
   logPath: "tmp/e2e/reports/devtools-load.log",

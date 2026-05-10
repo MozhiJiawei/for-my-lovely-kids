@@ -27,8 +27,11 @@ model TaskSubmission {
   status              String
   submittedAt         DateTime
   confirmedAt         DateTime?
+  completionKey       String?
 
   task Task @relation(fields: [taskId], references: [id])
+
+  @@index([completionKey])
 }
 
 model Wish {
@@ -67,6 +70,7 @@ model RedFlowerLedgerEntry {
   type            String
   deltaAvailable  Int
   deltaCumulative Int
+  flowerKind      String?
   occurredAt      DateTime
   sourceId        String
 }

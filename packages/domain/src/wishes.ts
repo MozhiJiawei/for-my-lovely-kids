@@ -1,5 +1,5 @@
 import { domainError, domainOk, type DomainResult } from "./errors";
-import { addWishMemorialDecoration, type Garden } from "./garden";
+import type { Garden } from "./garden";
 import { spendRedFlowers, type RedFlowerAccount } from "./red-flowers";
 
 export type WishStatus = "active" | "archived" | "test";
@@ -48,7 +48,6 @@ export type ApproveWishRedemptionInput = {
   redemptionId: string;
   approvedAt: string;
   ledgerEntryId: string;
-  decorationId: string;
 };
 
 export type ApproveWishRedemptionValue = {
@@ -173,12 +172,7 @@ export function approveWishRedemption(
       ),
     },
     redFlowers: nextRedFlowers.value,
-    garden: addWishMemorialDecoration(garden, {
-      decorationId: input.decorationId,
-      wishRedemptionId: redemption.id,
-      createdAt: input.approvedAt,
-      cumulativeRedFlowers: nextRedFlowers.value.balance.cumulative,
-    }),
+    garden,
     redemption: approvedRedemption,
   });
 }

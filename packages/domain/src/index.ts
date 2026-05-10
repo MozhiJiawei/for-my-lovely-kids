@@ -12,6 +12,7 @@ export { addWishMemorialDecoration, createGarden, getGardenStage } from "./garde
 export type {
   RedFlowerAccount,
   RedFlowerBalance,
+  RedFlowerKind,
   RedFlowerLedgerEntry,
   RedFlowerLedgerEntryType,
 } from "./red-flowers";
@@ -28,7 +29,7 @@ export type {
   TaskSubmission,
   TaskSubmissionStatus,
 } from "./tasks";
-export { confirmTaskSubmission, createTask, submitTask } from "./tasks";
+export { confirmTaskSubmission, createTask, getBusinessDayKey, submitTask } from "./tasks";
 export type {
   ApproveWishRedemptionInput,
   ApproveWishRedemptionValue,

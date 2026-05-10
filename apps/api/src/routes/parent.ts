@@ -5,11 +5,13 @@ import {
   confirmTaskSubmission,
   createTask,
   createWish,
+  type RedFlowerKind,
 } from "@red-flower-garden/domain";
 import type { FastifyInstance } from "fastify";
 
 import { assertPrototypeAuth } from "../auth/prototype-auth";
 import {
+  isDuplicateTaskCompletionPersistenceError,
   loadDomainState,
   saveTaskBook,
   saveTaskBookAndRedFlowers,
@@ -31,6 +33,18 @@ type CreateWishBody = {
 type ConfirmTasksBody = {
   submissionIds?: string[];
 };
+
+const flowerKinds: RedFlowerKind[] = ["coral", "sunny", "berry", "sky"];
+
+function chooseFlowerKind(seed: string): RedFlowerKind {
+  let hash = 0;
+
+  for (const char of seed) {
+    hash = Math.imul(hash ^ char.charCodeAt(0), 0x45d9f3b);
+  }
+
+  return flowerKinds[Math.abs(hash) % flowerKinds.length]!;
+}
 
 export async function registerParentRoutes(app: FastifyInstance): Promise<void> {
   app.post<{ Body: CreateTaskBody }>("/api/parent/tasks", async (request, reply) => {
@@ -122,34 +136,50 @@ export async function registerParentRoutes(app: FastifyInstance): Promise<void> 
       });
     }
 
-    const result = await app.prisma.$transaction(async (tx) => {
-      let state = await loadDomainState(tx);
+    let result;
 
-      for (const submissionId of submissionIds) {
-        const next = confirmTaskSubmission(state.taskBook, state.redFlowers, {
-          submissionId,
-          confirmedAt: new Date().toISOString(),
-          ledgerEntryId: randomUUID(),
-        });
+    try {
+      result = await app.prisma.$transaction(async (tx) => {
+        let state = await loadDomainState(tx);
 
-        if (!next.ok) {
-          return next;
+        for (const submissionId of submissionIds) {
+          const next = confirmTaskSubmission(state.taskBook, state.redFlowers, {
+            submissionId,
+            confirmedAt: new Date().toISOString(),
+            ledgerEntryId: randomUUID(),
+            flowerKind: chooseFlowerKind(submissionId),
+          });
+
+          if (!next.ok) {
+            return next;
+          }
+
+          state = {
+            ...state,
+            taskBook: next.value.taskBook,
+            redFlowers: next.value.redFlowers,
+          };
         }
 
-        state = {
-          ...state,
-          taskBook: next.value.taskBook,
-          redFlowers: next.value.redFlowers,
+        await saveTaskBookAndRedFlowers(tx, state);
+
+        return {
+          ok: true as const,
+          value: state,
         };
+      });
+    } catch (error) {
+      if (isDuplicateTaskCompletionPersistenceError(error)) {
+        return reply.code(400).send({
+          error: {
+            code: "TASK_ALREADY_CONFIRMED",
+            message: "Task has already been completed for this day.",
+          },
+        });
       }
 
-      await saveTaskBookAndRedFlowers(tx, state);
-
-      return {
-        ok: true as const,
-        value: state,
-      };
-    });
+      throw error;
+    }
 
     if (!result.ok) {
       return reply.code(400).send({ error: result.error });
@@ -171,7 +201,6 @@ export async function registerParentRoutes(app: FastifyInstance): Promise<void> 
           redemptionId: request.params.id,
           approvedAt: new Date().toISOString(),
           ledgerEntryId: randomUUID(),
-          decorationId: randomUUID(),
         });
 
         if (!next.ok) {

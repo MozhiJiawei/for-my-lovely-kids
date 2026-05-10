@@ -1,5 +1,5 @@
 import { domainError, domainOk, type DomainResult } from "./errors";
-import { earnRedFlowers, type RedFlowerAccount } from "./red-flowers";
+import { earnRedFlowers, type RedFlowerAccount, type RedFlowerKind } from "./red-flowers";
 
 export type TaskKind = "repeating" | "one_time";
 
@@ -50,6 +50,7 @@ export type ConfirmTaskSubmissionInput = {
   submissionId: string;
   confirmedAt: string;
   ledgerEntryId: string;
+  flowerKind?: RedFlowerKind;
 };
 
 export type ConfirmTaskSubmissionValue = {
@@ -107,6 +108,17 @@ export function submitTask(
     return domainError("TASK_NOT_ACTIVE", "Task is not active.");
   }
 
+  const alreadyCompleted = taskBook.submissions.some(
+    (submission) =>
+      submission.taskId === task.id &&
+      submission.status === "confirmed" &&
+      (task.kind === "one_time" || isSameBusinessDay(submission.confirmedAt, input.submittedAt)),
+  );
+
+  if (alreadyCompleted) {
+    return domainError("TASK_ALREADY_CONFIRMED", "Task has already been completed for this day.");
+  }
+
   const submission: TaskSubmission = {
     id: input.submissionId,
     taskId: task.id,
@@ -141,15 +153,43 @@ export function confirmTaskSubmission(
     return domainError("TASK_ALREADY_CONFIRMED", "Task submission has already been confirmed.");
   }
 
+  const task = taskBook.tasks.find((candidate) => candidate.id === submission.taskId);
+
+  if (!task) {
+    return domainError("TASK_NOT_FOUND", "Task does not exist.");
+  }
+
+  const alreadyCompleted = taskBook.submissions.some(
+    (candidate) =>
+      candidate.id !== submission.id &&
+      candidate.taskId === task.id &&
+      candidate.status === "confirmed" &&
+      (task.kind === "one_time" || isSameBusinessDay(candidate.confirmedAt, input.confirmedAt)),
+  );
+
+  if (alreadyCompleted) {
+    return domainError("TASK_ALREADY_CONFIRMED", "Task has already been completed for this day.");
+  }
+
   const confirmedSubmission: TaskSubmission = {
     ...submission,
     status: "confirmed",
     confirmedAt: input.confirmedAt,
   };
+  const tasks = taskBook.tasks.map((task) =>
+    task.id === submission.taskId && task.kind === "one_time"
+      ? {
+          ...task,
+          status: "archived" as const,
+          updatedAt: input.confirmedAt,
+        }
+      : task,
+  );
 
   return domainOk({
     taskBook: {
       ...taskBook,
+      tasks,
       submissions: taskBook.submissions.map((candidate) =>
         candidate.id === submission.id ? confirmedSubmission : candidate,
       ),
@@ -159,7 +199,20 @@ export function confirmTaskSubmission(
       occurredAt: input.confirmedAt,
       ledgerEntryId: input.ledgerEntryId,
       sourceId: submission.id,
+      ...(input.flowerKind ? { flowerKind: input.flowerKind } : {}),
     }),
     submission: confirmedSubmission,
   });
+}
+
+export function getBusinessDayKey(value: string): string {
+  return new Date(new Date(value).getTime() + 8 * 60 * 60 * 1000).toISOString().slice(0, 10);
+}
+
+function isSameBusinessDay(left: string | null, right: string): boolean {
+  if (!left) {
+    return false;
+  }
+
+  return getBusinessDayKey(left) === getBusinessDayKey(right);
 }

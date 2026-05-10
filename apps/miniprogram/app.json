@@ -1,5 +1,10 @@
 {
-  "pages": ["pages/prototype/index", "pages/smoke/index", "pages/e2e-report/index"],
+  "pages": [
+    "pages/garden-design/index",
+    "pages/e2e-report/index",
+    "pages/prototype/index",
+    "pages/smoke/index"
+  ],
   "window": {
     "navigationBarTitleText": "小红花花园",
     "navigationBarBackgroundColor": "#ffffff",

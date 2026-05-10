@@ -1,0 +1,106 @@
+<view class="page">
+  <view class="hero">
+    <view class="sky">
+      <view class="sun"></view>
+      <view class="cloud cloud-one"></view>
+      <view class="cloud cloud-two"></view>
+      <view class="spark spark-one"></view>
+      <view class="spark spark-two"></view>
+      <view class="spark spark-three"></view>
+    </view>
+
+    <view class="garden-stage">
+      <view class="flower-bed">
+        <view class="seed-field">
+          <view wx:for="{{seedSlots}}" wx:key="*this" class="seed seed-{{index}}"></view>
+        </view>
+        <view
+          wx:for="{{flowerSlots}}"
+          wx:key="slot"
+          class="flower flower-{{item.slot}} flower-kind-{{item.kind}}"
+        >
+          <view class="flower-head">
+            <image class="rose-image" src="/assets/garden/purple-rose.png" mode="aspectFit"></image>
+            <view class="petal petal-a"></view>
+            <view class="petal petal-b"></view>
+            <view class="petal petal-c"></view>
+            <view class="petal petal-d"></view>
+            <view class="petal petal-e"></view>
+            <view class="petal petal-f"></view>
+            <view class="flower-center"></view>
+          </view>
+          <view class="flower-stem"></view>
+        </view>
+      </view>
+    </view>
+
+    <view class="hero-copy">
+      <view class="eyebrow">今日小花园</view>
+      <view class="title">早晨花园醒来</view>
+      <view class="mood">每天从小种子开始，完成任务后，小红花一朵一朵开出来。</view>
+      <view class="daily-line">{{dailyLine}}</view>
+      <view class="dev-reset" bindtap="resetGardenData">重置测试数据</view>
+    </view>
+
+    <view class="flower-meter">
+      <view class="meter-item">
+        <view class="meter-number">{{todayFlowers}}</view>
+        <view class="meter-label">今日小红花</view>
+      </view>
+      <view class="meter-item">
+        <view class="meter-number">{{availableFlowers}}</view>
+        <view class="meter-label">可用小红花</view>
+      </view>
+      <view class="meter-item">
+        <view class="meter-number">{{cumulativeFlowers}}</view>
+        <view class="meter-label">累计小红花</view>
+      </view>
+    </view>
+  </view>
+
+  <view class="wish-row">
+    <view
+      wx:for="{{wishes}}"
+      wx:key="id"
+      class="wish-bubble {{item.enough ? 'wish-ready' : ''}}"
+      data-id="{{item.id}}"
+      data-title="{{item.title}}"
+      bindtap="requestWish"
+    >
+      <view class="wish-title">{{item.title}}</view>
+      <view class="wish-progress">
+        <view class="wish-progress-fill" style="width: {{item.progress}}%;"></view>
+      </view>
+      <view class="wish-meta">{{item.progress}}% · {{item.cost}} 朵</view>
+    </view>
+  </view>
+
+  <view class="task-section">
+    <view class="task-tabs">
+      <view
+        wx:for="{{taskTabs}}"
+        wx:key="id"
+        data-id="{{item.id}}"
+        bindtap="selectTaskTab"
+        class="task-tab {{item.active ? 'task-tab-active' : ''}}"
+      >
+        {{item.label}}
+      </view>
+    </view>
+    <view wx:if="{{visibleTasks.length === 0}}" class="empty-state">这里还没有小任务。</view>
+    <view
+      wx:for="{{visibleTasks}}"
+      wx:key="id"
+      data-id="{{item.id}}"
+      bindtap="tapTask"
+      class="task-card task-{{item.state}}"
+    >
+      <view class="task-icon">{{item.state === 'done' ? '花' : '星'}}</view>
+      <view class="task-main">
+        <view class="task-title">{{item.title}}</view>
+        <view class="task-state">{{item.stateText}} · {{item.flowerValue}} 朵</view>
+      </view>
+      <view class="task-action {{item.state !== 'ready' ? 'task-action-disabled' : ''}}">{{item.actionText}}</view>
+    </view>
+  </view>
+</view>

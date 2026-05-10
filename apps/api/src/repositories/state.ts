@@ -1,5 +1,12 @@
-import type { Garden, RedFlowerAccount, TaskBook, WishBook } from "@red-flower-garden/domain";
-import type { Prisma, PrismaClient } from "@prisma/client";
+import type {
+  Garden,
+  RedFlowerAccount,
+  TaskBook,
+  TaskKind,
+  WishBook,
+} from "@red-flower-garden/domain";
+import { getBusinessDayKey } from "@red-flower-garden/domain";
+import { Prisma, PrismaClient } from "@prisma/client";
 
 import { balanceId } from "./database";
 import { mapGarden, mapRedFlowerAccount, mapTaskBook, mapWishBook } from "./mappers";
@@ -39,6 +46,69 @@ const testTasks = [
     title: "[测试] 亲子阅读",
     flowerValue: 4,
     kind: "repeating",
+    status: "test",
+    createdAt: fixtureNow,
+    updatedAt: fixtureNow,
+  },
+  {
+    id: "test-task-drink-water",
+    title: "[测试] 主动喝水",
+    flowerValue: 1,
+    kind: "repeating",
+    status: "test",
+    createdAt: fixtureNow,
+    updatedAt: fixtureNow,
+  },
+  {
+    id: "test-task-go-potty",
+    title: "[测试] 自己上厕所",
+    flowerValue: 2,
+    kind: "repeating",
+    status: "test",
+    createdAt: fixtureNow,
+    updatedAt: fixtureNow,
+  },
+  {
+    id: "test-task-say-thanks",
+    title: "[测试] 主动说谢谢",
+    flowerValue: 1,
+    kind: "repeating",
+    status: "test",
+    createdAt: fixtureNow,
+    updatedAt: fixtureNow,
+  },
+  {
+    id: "test-task-tie-shoes",
+    title: "[测试] 学会系鞋带",
+    flowerValue: 5,
+    kind: "one_time",
+    status: "test",
+    createdAt: fixtureNow,
+    updatedAt: fixtureNow,
+  },
+  {
+    id: "test-task-write-name",
+    title: "[测试] 会写自己的名字",
+    flowerValue: 6,
+    kind: "one_time",
+    status: "test",
+    createdAt: fixtureNow,
+    updatedAt: fixtureNow,
+  },
+  {
+    id: "test-task-ride-bike",
+    title: "[测试] 学会骑平衡车",
+    flowerValue: 8,
+    kind: "one_time",
+    status: "test",
+    createdAt: fixtureNow,
+    updatedAt: fixtureNow,
+  },
+  {
+    id: "test-task-count-twenty",
+    title: "[测试] 从 1 数到 20",
+    flowerValue: 4,
+    kind: "one_time",
     status: "test",
     createdAt: fixtureNow,
     updatedAt: fixtureNow,
@@ -115,15 +185,25 @@ export async function ensureDefaultFixture(db: PrismaClient): Promise<void> {
 
 async function seedTestFixtures(tx: Prisma.TransactionClient): Promise<void> {
   for (const task of testTasks) {
-    await tx.task.upsert({
+    const existing = await tx.task.findUnique({
       where: { id: task.id },
-      create: task,
-      update: {
+      select: { status: true, updatedAt: true },
+    });
+    const keepArchivedGoal = task.kind === "one_time" && existing?.status === "archived";
+
+    if (!existing) {
+      await tx.task.create({ data: task });
+      continue;
+    }
+
+    await tx.task.update({
+      where: { id: task.id },
+      data: {
         title: task.title,
         flowerValue: task.flowerValue,
         kind: task.kind,
-        status: task.status,
-        updatedAt: task.updatedAt,
+        status: keepArchivedGoal ? "archived" : task.status,
+        updatedAt: keepArchivedGoal ? existing.updatedAt : task.updatedAt,
       },
     });
   }
@@ -168,6 +248,8 @@ export async function saveTaskBookAndRedFlowers(
   tx: Prisma.TransactionClient,
   state: Pick<DomainState, "taskBook" | "redFlowers">,
 ): Promise<void> {
+  await saveTaskBook(tx, state.taskBook);
+
   for (const latestSubmission of state.taskBook.submissions) {
     await tx.taskSubmission.upsert({
       where: { id: latestSubmission.id },
@@ -179,10 +261,20 @@ export async function saveTaskBookAndRedFlowers(
         status: latestSubmission.status,
         submittedAt: new Date(latestSubmission.submittedAt),
         confirmedAt: latestSubmission.confirmedAt ? new Date(latestSubmission.confirmedAt) : null,
+        completionKey: createSubmissionCompletionKey(
+          state.taskBook,
+          latestSubmission.taskId,
+          latestSubmission.confirmedAt,
+        ),
       },
       update: {
         status: latestSubmission.status,
         confirmedAt: latestSubmission.confirmedAt ? new Date(latestSubmission.confirmedAt) : null,
+        completionKey: createSubmissionCompletionKey(
+          state.taskBook,
+          latestSubmission.taskId,
+          latestSubmission.confirmedAt,
+        ),
       },
     });
   }
@@ -283,6 +375,40 @@ export async function saveWishBookRedFlowersAndGarden(
   }
 }
 
+export function isDuplicateTaskCompletionPersistenceError(error: unknown): boolean {
+  return (
+    error instanceof Prisma.PrismaClientKnownRequestError &&
+    error.code === "P2002" &&
+    String(error.meta?.target ?? "").includes("completionKey")
+  );
+}
+
+function createSubmissionCompletionKey(
+  taskBook: TaskBook,
+  taskId: string,
+  confirmedAt: string | null,
+): string | null {
+  if (!confirmedAt) {
+    return null;
+  }
+
+  const task = taskBook.tasks.find((candidate) => candidate.id === taskId);
+
+  if (!task) {
+    return null;
+  }
+
+  return createCompletionKey(taskId, task.kind, confirmedAt);
+}
+
+function createCompletionKey(taskId: string, taskKind: TaskKind, confirmedAt: string): string {
+  if (taskKind === "one_time") {
+    return `one_time:${taskId}`;
+  }
+
+  return `repeating:${taskId}:${getBusinessDayKey(confirmedAt)}`;
+}
+
 async function saveRedFlowerAccount(
   tx: Prisma.TransactionClient,
   account: RedFlowerAccount,
@@ -304,6 +430,7 @@ async function saveRedFlowerAccount(
         type: latestLedgerEntry.type,
         deltaAvailable: latestLedgerEntry.deltaAvailable,
         deltaCumulative: latestLedgerEntry.deltaCumulative,
+        flowerKind: latestLedgerEntry.flowerKind,
         occurredAt: new Date(latestLedgerEntry.occurredAt),
         sourceId: latestLedgerEntry.sourceId,
       },

@@ -35,6 +35,6 @@ Keep tests close to the boundary they verify.
 
 ## Red Flower Garden Expectations
 
-- Domain tests must cover the red-flower state machine: pending submissions, parent confirmation, available versus cumulative flowers, insufficient balance, and memorial decoration creation.
+- Domain tests must cover the red-flower state machine: child task completion, available versus cumulative flowers, insufficient balance, and the current no-memorial-decoration wish redemption rule.
 - API E2E tests must cover the same critical rules through real API routes and SQLite persistence.
 - Error-path API tests must assert the structured error envelope: `{ error: { code, message } }`.

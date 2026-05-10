@@ -2,6 +2,7 @@ import type {
   Garden,
   RedFlowerAccount,
   RedFlowerBalance,
+  RedFlowerKind,
   RedFlowerLedgerEntry,
   Task,
   TaskBook,
@@ -20,6 +21,12 @@ import type {
   Wish as PrismaWish,
   WishRedemption as PrismaWishRedemption,
 } from "@prisma/client";
+
+function mapFlowerKind(value: string | null): RedFlowerKind | null {
+  return value === "sunny" || value === "berry" || value === "sky" || value === "coral"
+    ? value
+    : null;
+}
 
 export function mapTask(task: PrismaTask): Task {
   return {
@@ -103,6 +110,7 @@ export function mapLedgerEntry(entry: PrismaRedFlowerLedgerEntry): RedFlowerLedg
     type: entry.type === "wish_approved" ? "wish_approved" : "task_confirmed",
     deltaAvailable: entry.deltaAvailable,
     deltaCumulative: entry.deltaCumulative,
+    flowerKind: mapFlowerKind(entry.flowerKind),
     occurredAt: entry.occurredAt.toISOString(),
     sourceId: entry.sourceId,
   };

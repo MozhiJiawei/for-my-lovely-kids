@@ -180,7 +180,7 @@ describe("red flower API flow", () => {
     await app.close();
   });
 
-  it("keeps task submission pending until parent confirmation adds official flowers", async () => {
+  it("completes a child task immediately and persists official flowers", async () => {
     const app = buildApp({ prisma: getPrisma() });
     await app.ready();
 
@@ -202,47 +202,28 @@ describe("red flower API flow", () => {
     expect(submitted.json()).toMatchObject({
       submission: {
         taskId: "test-task-brush-teeth",
-        status: "pending",
+        status: "confirmed",
         flowerValueSnapshot: 2,
       },
       state: {
         redFlowers: {
           balance: {
-            available: 0,
-            cumulative: 0,
+            available: 2,
+            cumulative: 2,
           },
+          ledger: [
+            {
+              type: "task_confirmed",
+              deltaAvailable: 2,
+              deltaCumulative: 2,
+              flowerKind: expect.stringMatching(/^(coral|sunny|berry|sky)$/),
+            },
+          ],
         },
       },
     });
 
     const submissionId = submitted.json().submission.id as string;
-
-    const confirmed = await app.inject({
-      method: "POST",
-      url: "/api/parent/task-confirmations",
-      headers: parentHeaders,
-      payload: {
-        submissionIds: [submissionId],
-      },
-    });
-
-    expect(confirmed.statusCode).toBe(200);
-    expect(confirmed.json()).toMatchObject({
-      redFlowers: {
-        balance: {
-          available: 2,
-          cumulative: 2,
-        },
-        ledger: [
-          {
-            type: "task_confirmed",
-            deltaAvailable: 2,
-            deltaCumulative: 2,
-            sourceId: submissionId,
-          },
-        ],
-      },
-    });
 
     const savedSubmission = await getPrisma().taskSubmission.findUniqueOrThrow({
       where: { id: submissionId },
@@ -256,6 +237,7 @@ describe("red flower API flow", () => {
 
     expect(savedSubmission.status).toBe("confirmed");
     expect(savedSubmission.flowerValueSnapshot).toBe(2);
+    expect(savedSubmission.completionKey).toMatch(/^repeating:test-task-brush-teeth:/);
     expect(savedBalance.available).toBe(2);
     expect(savedBalance.cumulative).toBe(2);
     expect(savedLedger).toHaveLength(1);
@@ -263,13 +245,14 @@ describe("red flower API flow", () => {
       type: "task_confirmed",
       deltaAvailable: 2,
       deltaCumulative: 2,
+      flowerKind: expect.stringMatching(/^(coral|sunny|berry|sky)$/),
       sourceId: submissionId,
     });
 
     await app.close();
   });
 
-  it("approves wish redemption by spending available flowers and creating a memorial decoration", async () => {
+  it("keeps habit tasks available across days but rejects duplicate same-day completion", async () => {
     const app = buildApp({ prisma: getPrisma() });
     await app.ready();
 
@@ -286,39 +269,7 @@ describe("red flower API flow", () => {
         taskId: "test-task-brush-teeth",
       },
     });
-    const second = await app.inject({
-      method: "POST",
-      url: "/api/child/task-submissions",
-      headers: familyHeaders,
-      payload: {
-        taskId: "test-task-brush-teeth",
-      },
-    });
-    const third = await app.inject({
-      method: "POST",
-      url: "/api/child/task-submissions",
-      headers: familyHeaders,
-      payload: {
-        taskId: "test-task-brush-teeth",
-      },
-    });
-    const fourth = await app.inject({
-      method: "POST",
-      url: "/api/child/task-submissions",
-      headers: familyHeaders,
-      payload: {
-        taskId: "test-task-brush-teeth",
-      },
-    });
-    const fifth = await app.inject({
-      method: "POST",
-      url: "/api/child/task-submissions",
-      headers: familyHeaders,
-      payload: {
-        taskId: "test-task-brush-teeth",
-      },
-    });
-    const sixth = await app.inject({
+    const duplicate = await app.inject({
       method: "POST",
       url: "/api/child/task-submissions",
       headers: familyHeaders,
@@ -327,18 +278,277 @@ describe("red flower API flow", () => {
       },
     });
 
-    const submissionIds = [first, second, third, fourth, fifth, sixth].map(
-      (response) => response.json().submission.id as string,
-    );
+    expect(first.statusCode).toBe(200);
+    expect(duplicate.statusCode).toBe(400);
+    expect(duplicate.json()).toEqual({
+      error: {
+        code: "TASK_ALREADY_CONFIRMED",
+        message: "Task has already been completed for this day.",
+      },
+    });
+
+    await expect(
+      getPrisma().task.findUniqueOrThrow({
+        where: { id: "test-task-brush-teeth" },
+      }),
+    ).resolves.toMatchObject({
+      kind: "repeating",
+      status: "test",
+    });
+    await expect(getPrisma().taskSubmission.count()).resolves.toBe(1);
+    await expect(getPrisma().redFlowerLedgerEntry.count()).resolves.toBe(1);
+
+    await app.close();
+  });
+
+  it("archives a one-time goal task after completion and persists it", async () => {
+    const app = buildApp({ prisma: getPrisma() });
+    await app.ready();
 
     await app.inject({
+      method: "POST",
+      url: "/__test/reset",
+    });
+
+    const submitted = await app.inject({
+      method: "POST",
+      url: "/api/child/task-submissions",
+      headers: familyHeaders,
+      payload: {
+        taskId: "test-task-tie-shoes",
+      },
+    });
+
+    expect(submitted.statusCode).toBe(200);
+    expect(submitted.json()).toMatchObject({
+      submission: {
+        taskId: "test-task-tie-shoes",
+        status: "confirmed",
+        flowerValueSnapshot: 5,
+      },
+      state: {
+        taskBook: {
+          tasks: expect.arrayContaining([
+            expect.objectContaining({
+              id: "test-task-tie-shoes",
+              kind: "one_time",
+              status: "archived",
+            }),
+          ]),
+        },
+      },
+    });
+
+    await expect(
+      getPrisma().task.findUniqueOrThrow({
+        where: { id: "test-task-tie-shoes" },
+      }),
+    ).resolves.toMatchObject({
+      kind: "one_time",
+      status: "archived",
+    });
+    await expect(
+      getPrisma().taskSubmission.findFirstOrThrow({
+        where: { taskId: "test-task-tie-shoes" },
+      }),
+    ).resolves.toMatchObject({
+      status: "confirmed",
+      flowerValueSnapshot: 5,
+    });
+
+    await app.close();
+  });
+
+  it("keeps completed one-time fixture goals archived after app restart", async () => {
+    const app = buildApp({ prisma: getPrisma() });
+    await app.ready();
+
+    await app.inject({
+      method: "POST",
+      url: "/__test/reset",
+    });
+
+    const submitted = await app.inject({
+      method: "POST",
+      url: "/api/child/task-submissions",
+      headers: familyHeaders,
+      payload: {
+        taskId: "test-task-tie-shoes",
+      },
+    });
+
+    expect(submitted.statusCode).toBe(200);
+    await app.close();
+
+    const restarted = buildApp({ prisma: getPrisma() });
+    await restarted.ready();
+
+    const state = await restarted.inject({
+      method: "GET",
+      url: "/api/state",
+      headers: familyHeaders,
+    });
+
+    expect(state.statusCode).toBe(200);
+    expect(state.json()).toMatchObject({
+      taskBook: {
+        tasks: expect.arrayContaining([
+          expect.objectContaining({
+            id: "test-task-tie-shoes",
+            kind: "one_time",
+            status: "archived",
+          }),
+        ]),
+      },
+    });
+    await expect(
+      getPrisma().task.findUniqueOrThrow({
+        where: { id: "test-task-tie-shoes" },
+      }),
+    ).resolves.toMatchObject({
+      status: "archived",
+    });
+
+    await restarted.close();
+  });
+
+  it("confirms existing parent-review task submissions and persists flowers", async () => {
+    const app = buildApp({ prisma: getPrisma() });
+    await app.ready();
+
+    await app.inject({
+      method: "POST",
+      url: "/__test/reset",
+    });
+
+    await getPrisma().taskSubmission.create({
+      data: {
+        id: "pending-parent-confirmation",
+        taskId: "test-task-brush-teeth",
+        titleSnapshot: "[测试] 认真刷牙",
+        flowerValueSnapshot: 2,
+        status: "pending",
+        submittedAt: new Date("2026-05-11T01:00:00.000Z"),
+      },
+    });
+
+    const confirmed = await app.inject({
       method: "POST",
       url: "/api/parent/task-confirmations",
       headers: parentHeaders,
       payload: {
-        submissionIds,
+        submissionIds: ["pending-parent-confirmation"],
       },
     });
+
+    expect(confirmed.statusCode).toBe(200);
+    expect(confirmed.json()).toMatchObject({
+      redFlowers: {
+        balance: {
+          available: 2,
+          cumulative: 2,
+        },
+      },
+    });
+    await expect(
+      getPrisma().taskSubmission.findUniqueOrThrow({
+        where: { id: "pending-parent-confirmation" },
+      }),
+    ).resolves.toMatchObject({
+      status: "confirmed",
+      completionKey: expect.stringMatching(/^repeating:test-task-brush-teeth:/),
+    });
+    await expect(
+      getPrisma().redFlowerLedgerEntry.findFirstOrThrow({
+        where: { sourceId: "pending-parent-confirmation" },
+      }),
+    ).resolves.toMatchObject({
+      deltaAvailable: 2,
+      deltaCumulative: 2,
+    });
+
+    await app.close();
+  });
+
+  it("rejects duplicate pending parent confirmations for the same local day", async () => {
+    const app = buildApp({ prisma: getPrisma() });
+    await app.ready();
+
+    await app.inject({
+      method: "POST",
+      url: "/__test/reset",
+    });
+
+    await getPrisma().taskSubmission.createMany({
+      data: [
+        {
+          id: "pending-parent-confirmation-1",
+          taskId: "test-task-brush-teeth",
+          titleSnapshot: "[测试] 认真刷牙",
+          flowerValueSnapshot: 2,
+          status: "pending",
+          submittedAt: new Date("2026-05-11T01:00:00.000Z"),
+        },
+        {
+          id: "pending-parent-confirmation-2",
+          taskId: "test-task-brush-teeth",
+          titleSnapshot: "[测试] 认真刷牙",
+          flowerValueSnapshot: 2,
+          status: "pending",
+          submittedAt: new Date("2026-05-11T02:00:00.000Z"),
+        },
+      ],
+    });
+
+    const first = await app.inject({
+      method: "POST",
+      url: "/api/parent/task-confirmations",
+      headers: parentHeaders,
+      payload: {
+        submissionIds: ["pending-parent-confirmation-1"],
+      },
+    });
+    const duplicate = await app.inject({
+      method: "POST",
+      url: "/api/parent/task-confirmations",
+      headers: parentHeaders,
+      payload: {
+        submissionIds: ["pending-parent-confirmation-2"],
+      },
+    });
+
+    expect(first.statusCode).toBe(200);
+    expect(duplicate.statusCode).toBe(400);
+    expect(duplicate.json()).toEqual({
+      error: {
+        code: "TASK_ALREADY_CONFIRMED",
+        message: "Task has already been completed for this day.",
+      },
+    });
+    await expect(getPrisma().redFlowerLedgerEntry.count()).resolves.toBe(1);
+
+    await app.close();
+  });
+
+  it("approves wish redemption by spending available flowers without creating a memorial decoration", async () => {
+    const app = buildApp({ prisma: getPrisma() });
+    await app.ready();
+
+    await app.inject({
+      method: "POST",
+      url: "/__test/reset",
+    });
+
+    for (const taskId of ["test-task-brush-teeth", "test-task-reading", "test-task-tie-shoes"]) {
+      const response = await app.inject({
+        method: "POST",
+        url: "/api/child/task-submissions",
+        headers: familyHeaders,
+        payload: { taskId },
+      });
+
+      expect(response.statusCode).toBe(200);
+    }
 
     const requested = await app.inject({
       method: "POST",
@@ -359,8 +569,8 @@ describe("red flower API flow", () => {
       state: {
         redFlowers: {
           balance: {
-            available: 12,
-            cumulative: 12,
+            available: 11,
+            cumulative: 11,
           },
         },
       },
@@ -383,17 +593,12 @@ describe("red flower API flow", () => {
       state: {
         redFlowers: {
           balance: {
-            available: 2,
-            cumulative: 12,
+            available: 1,
+            cumulative: 11,
           },
         },
         garden: {
-          memorialDecorations: [
-            {
-              wishRedemptionId: redemptionId,
-              kind: "wish_memorial",
-            },
-          ],
+          memorialDecorations: [],
         },
       },
     });
@@ -413,13 +618,9 @@ describe("red flower API flow", () => {
 
     expect(savedRedemption.status).toBe("approved");
     expect(savedRedemption.flowerCostSnapshot).toBe(10);
-    expect(savedBalance.available).toBe(2);
-    expect(savedBalance.cumulative).toBe(12);
-    expect(savedDecorations).toHaveLength(1);
-    expect(savedDecorations[0]).toMatchObject({
-      wishRedemptionId: redemptionId,
-      kind: "wish_memorial",
-    });
+    expect(savedBalance.available).toBe(1);
+    expect(savedBalance.cumulative).toBe(11);
+    expect(savedDecorations).toHaveLength(0);
     expect(savedWishLedger).toEqual([
       expect.objectContaining({
         type: "wish_approved",
@@ -432,7 +633,7 @@ describe("red flower API flow", () => {
     await app.close();
   });
 
-  it("redeems a wish in one API action and creates a memorial decoration", async () => {
+  it("redeems a wish in one child API action without creating a memorial decoration", async () => {
     const app = buildApp({ prisma: getPrisma() });
     await app.ready();
 
@@ -441,27 +642,16 @@ describe("red flower API flow", () => {
       url: "/__test/reset",
     });
 
-    const submissions = await Promise.all(
-      Array.from({ length: 5 }, () =>
-        app.inject({
-          method: "POST",
-          url: "/api/child/task-submissions",
-          headers: familyHeaders,
-          payload: {
-            taskId: "test-task-brush-teeth",
-          },
-        }),
-      ),
-    );
+    for (const taskId of ["test-task-brush-teeth", "test-task-reading", "test-task-tie-shoes"]) {
+      const response = await app.inject({
+        method: "POST",
+        url: "/api/child/task-submissions",
+        headers: familyHeaders,
+        payload: { taskId },
+      });
 
-    await app.inject({
-      method: "POST",
-      url: "/api/parent/task-confirmations",
-      headers: parentHeaders,
-      payload: {
-        submissionIds: submissions.map((response) => response.json().submission.id as string),
-      },
-    });
+      expect(response.statusCode).toBe(200);
+    }
 
     const redeemed = await app.inject({
       method: "POST",
@@ -482,19 +672,27 @@ describe("red flower API flow", () => {
       state: {
         redFlowers: {
           balance: {
-            available: 0,
-            cumulative: 10,
+            available: 1,
+            cumulative: 11,
           },
         },
         garden: {
-          memorialDecorations: [
-            expect.objectContaining({
-              kind: "wish_memorial",
-            }),
-          ],
+          memorialDecorations: [],
         },
       },
     });
+    expect(
+      redeemed
+        .json()
+        .state.redFlowers.ledger.filter(
+          (entry: { type: string; deltaCumulative: number }) =>
+            entry.type === "task_confirmed" && entry.deltaCumulative > 0,
+        )
+        .reduce(
+          (sum: number, entry: { deltaCumulative: number }) => sum + entry.deltaCumulative,
+          0,
+        ),
+    ).toBe(11);
 
     const redemptionId = redeemed.json().redemption.id as string;
 
@@ -507,11 +705,50 @@ describe("red flower API flow", () => {
       flowerCostSnapshot: 10,
     });
     await expect(
-      getPrisma().memorialDecoration.findFirstOrThrow({
+      getPrisma().memorialDecoration.count({
         where: { wishRedemptionId: redemptionId },
       }),
+    ).resolves.toBe(0);
+
+    await app.close();
+  });
+
+  it("rejects one-step child wish redemption without persisting partial state", async () => {
+    const app = buildApp({ prisma: getPrisma() });
+    await app.ready();
+
+    await app.inject({
+      method: "POST",
+      url: "/__test/reset",
+    });
+
+    const redeemed = await app.inject({
+      method: "POST",
+      url: "/api/child/wish-redemptions/redeem",
+      headers: familyHeaders,
+      payload: {
+        wishId: "test-wish-carousel",
+      },
+    });
+
+    expect(redeemed.statusCode).toBe(400);
+    expect(redeemed.json()).toEqual({
+      error: {
+        code: "INSUFFICIENT_RED_FLOWERS",
+        message: "Available red flowers are not enough for this wish.",
+      },
+    });
+
+    await expect(getPrisma().wishRedemption.count()).resolves.toBe(0);
+    await expect(getPrisma().redFlowerLedgerEntry.count()).resolves.toBe(0);
+    await expect(getPrisma().memorialDecoration.count()).resolves.toBe(0);
+    await expect(
+      getPrisma().redFlowerBalance.findUniqueOrThrow({
+        where: { id: "default-red-flower-balance" },
+      }),
     ).resolves.toMatchObject({
-      kind: "wish_memorial",
+      available: 0,
+      cumulative: 0,
     });
 
     await app.close();
@@ -597,8 +834,47 @@ describe("red flower API flow", () => {
     expect(() => assertSafePrototypeAuthConfig("0.0.0.0")).not.toThrow();
   });
 
-  it("rejects test reset outside test mode", async () => {
+  it("allows fixture reset in development mode", async () => {
     process.env.NODE_ENV = "development";
+    const app = buildApp({ prisma: getPrisma() });
+    await app.ready();
+
+    const submitted = await app.inject({
+      method: "POST",
+      url: "/api/child/task-submissions",
+      headers: familyHeaders,
+      payload: {
+        taskId: "test-task-brush-teeth",
+      },
+    });
+    expect(submitted.statusCode).toBe(200);
+
+    const response = await app.inject({
+      method: "POST",
+      url: "/__test/reset",
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toMatchObject({
+      redFlowers: {
+        balance: {
+          available: 0,
+          cumulative: 0,
+        },
+        ledger: [],
+      },
+      taskBook: {
+        submissions: [],
+      },
+    });
+    await expect(getPrisma().taskSubmission.count()).resolves.toBe(0);
+    await expect(getPrisma().redFlowerLedgerEntry.count()).resolves.toBe(0);
+
+    await app.close();
+  });
+
+  it("rejects fixture reset in production mode", async () => {
+    process.env.NODE_ENV = "production";
     const app = buildApp({ prisma: getPrisma() });
     await app.ready();
 

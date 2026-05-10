@@ -9,6 +9,7 @@
 - `apps/api`: Fastify 服务端。负责 HTTP 接口、持久化编排、鉴权/访问机制和运行入口。
 - `packages/domain`: 纯领域规则。不得依赖微信 API、Fastify、Prisma 或本地存储。
 - `prisma`: 后续服务端持久化 schema 和迁移目录。
+- `data`: 本地 SQLite 业务数据目录。该目录不进入版本库，备份时请复制这里的 `.db` 文件。
 - `docs/e2e`: 人能读懂的验收场景。
 - `tmp/e2e`: 本地 E2E 测试临时产物，如运行报告、截图和日志。该目录不进入版本库。
 - `tests/e2e/miniprogram/devtools-load.mjs`: 唯一自动化 E2E 测试入口。
@@ -43,7 +44,9 @@ GitHub Actions also runs `e2e`. Hosted runners normally skip it because WeChat D
 corepack pnpm run dev:api
 ```
 
-The API currently exposes a smoke health route at `GET /health`.
+When `DATABASE_URL` is not set, the API stores local SQLite data in `data/red-flower-dev.db`.
+Back up that file before moving machines or clearing local data. The API also exposes a smoke
+health route at `GET /health`.
 
 ## Mini Program
 

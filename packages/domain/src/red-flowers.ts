@@ -7,12 +7,14 @@ export type RedFlowerBalance = {
 };
 
 export type RedFlowerLedgerEntryType = "task_confirmed" | "wish_approved";
+export type RedFlowerKind = "coral" | "sunny" | "berry" | "sky";
 
 export type RedFlowerLedgerEntry = {
   id: string;
   type: RedFlowerLedgerEntryType;
   deltaAvailable: number;
   deltaCumulative: number;
+  flowerKind: RedFlowerKind | null;
   occurredAt: string;
   sourceId: string;
 };
@@ -27,6 +29,7 @@ type RedFlowerChangeInput = {
   occurredAt: string;
   ledgerEntryId: string;
   sourceId: string;
+  flowerKind?: RedFlowerKind;
 };
 
 export function createEmptyRedFlowerAccount(now: string): RedFlowerAccount {
@@ -57,6 +60,7 @@ export function earnRedFlowers(
         type: "task_confirmed",
         deltaAvailable: input.amount,
         deltaCumulative: input.amount,
+        flowerKind: input.flowerKind ?? "coral",
         occurredAt: input.occurredAt,
         sourceId: input.sourceId,
       },
@@ -88,6 +92,7 @@ export function spendRedFlowers(
         type: "wish_approved",
         deltaAvailable: -input.amount,
         deltaCumulative: 0,
+        flowerKind: null,
         occurredAt: input.occurredAt,
         sourceId: input.sourceId,
       },

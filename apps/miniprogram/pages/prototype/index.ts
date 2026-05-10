@@ -578,7 +578,7 @@ Page({
       this.setData({
         ...deriveDataFromState(response.state, this.data),
         loading: false,
-        message: "愿望已兑换，可用小红花已扣除，并生成纪念装饰。",
+        message: "愿望已兑换，可用小红花已扣除。",
       });
     } catch (error) {
       this.setData({

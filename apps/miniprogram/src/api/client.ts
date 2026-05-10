@@ -4,6 +4,8 @@ export type TaskSubmissionState = {
   titleSnapshot: string;
   flowerValueSnapshot: number;
   status: "pending" | "confirmed";
+  submittedAt: string;
+  confirmedAt: string | null;
 };
 
 export type TaskState = {
@@ -40,6 +42,8 @@ export type RedFlowerLedgerLine = {
   type: "task_confirmed" | "wish_approved";
   deltaAvailable: number;
   deltaCumulative: number;
+  flowerKind: "coral" | "sunny" | "berry" | "sky" | null;
+  occurredAt: string;
   sourceId: string;
 };
 
@@ -101,6 +105,7 @@ export function resetTestData(config: ApiConfig): Promise<PrototypeState> {
     path: "/__test/reset",
     method: "POST",
     tokenKind: "family",
+    data: {},
   });
 }
 
@@ -137,8 +142,11 @@ export function createWish(
   });
 }
 
-export function submitTask(config: ApiConfig, taskId: string): Promise<{ state: PrototypeState }> {
-  return request<{ state: PrototypeState }>({
+export function submitTask(
+  config: ApiConfig,
+  taskId: string,
+): Promise<{ submission: TaskSubmissionState; state: PrototypeState }> {
+  return request<{ submission: TaskSubmissionState; state: PrototypeState }>({
     config,
     path: "/api/child/task-submissions",
     method: "POST",
@@ -171,8 +179,11 @@ export function requestWish(config: ApiConfig, wishId: string): Promise<{ state:
   });
 }
 
-export function redeemWish(config: ApiConfig, wishId: string): Promise<{ state: PrototypeState }> {
-  return request<{ state: PrototypeState }>({
+export function redeemWish(
+  config: ApiConfig,
+  wishId: string,
+): Promise<{ redemption: WishRedemptionState; state: PrototypeState }> {
+  return request<{ redemption: WishRedemptionState; state: PrototypeState }>({
     config,
     path: "/api/child/wish-redemptions/redeem",
     method: "POST",

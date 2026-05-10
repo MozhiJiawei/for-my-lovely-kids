@@ -27,6 +27,15 @@ function createTaskBook(): TaskBook {
         createdAt: now,
         updatedAt: now,
       },
+      {
+        id: "task-tie-shoes",
+        title: "学会系鞋带",
+        flowerValue: 5,
+        kind: "one_time",
+        status: "active",
+        createdAt: now,
+        updatedAt: now,
+      },
     ],
     submissions: [],
   };
@@ -148,6 +157,7 @@ describe("red flower domain rules", () => {
         type: "task_confirmed",
         deltaAvailable: 2,
         deltaCumulative: 2,
+        flowerKind: "coral",
         sourceId: "submission-1",
       }),
     ]);
@@ -189,6 +199,165 @@ describe("red flower domain rules", () => {
     expect(confirmed.redFlowers.ledger).toHaveLength(1);
   });
 
+  it("keeps a repeating habit active after today's check-in and rejects a second same-day check-in", () => {
+    const first = expectOk(
+      submitTask(createTaskBook(), {
+        taskId: "task-brush-teeth",
+        submissionId: "submission-1",
+        submittedAt: "2026-05-11T01:00:00.000Z",
+      }),
+    );
+    const confirmed = expectOk(
+      confirmTaskSubmission(first.taskBook, createEmptyRedFlowerAccount(now), {
+        submissionId: "submission-1",
+        confirmedAt: "2026-05-11T01:00:00.000Z",
+        ledgerEntryId: "ledger-1",
+      }),
+    );
+
+    expect(confirmed.taskBook.tasks.find((task) => task.id === "task-brush-teeth")).toMatchObject({
+      status: "active",
+    });
+
+    expect(
+      submitTask(confirmed.taskBook, {
+        taskId: "task-brush-teeth",
+        submissionId: "submission-duplicate",
+        submittedAt: "2026-05-11T10:00:00.000Z",
+      }),
+    ).toEqual({
+      ok: false,
+      error: expect.objectContaining({
+        code: "TASK_ALREADY_CONFIRMED",
+      }),
+    });
+
+    expect(
+      submitTask(confirmed.taskBook, {
+        taskId: "task-brush-teeth",
+        submissionId: "submission-next-day",
+        submittedAt: "2026-05-12T01:00:00.000Z",
+      }),
+    ).toMatchObject({
+      ok: true,
+      value: {
+        submission: {
+          id: "submission-next-day",
+          taskId: "task-brush-teeth",
+        },
+      },
+    });
+  });
+
+  it("uses the China local day for repeating habit completion windows", () => {
+    const first = expectOk(
+      submitTask(createTaskBook(), {
+        taskId: "task-brush-teeth",
+        submissionId: "submission-1",
+        submittedAt: "2026-05-10T16:30:00.000Z",
+      }),
+    );
+    const confirmed = expectOk(
+      confirmTaskSubmission(first.taskBook, createEmptyRedFlowerAccount(now), {
+        submissionId: "submission-1",
+        confirmedAt: "2026-05-10T16:30:00.000Z",
+        ledgerEntryId: "ledger-1",
+      }),
+    );
+
+    expect(
+      submitTask(confirmed.taskBook, {
+        taskId: "task-brush-teeth",
+        submissionId: "submission-same-china-day",
+        submittedAt: "2026-05-11T15:30:00.000Z",
+      }),
+    ).toEqual({
+      ok: false,
+      error: expect.objectContaining({
+        code: "TASK_ALREADY_CONFIRMED",
+      }),
+    });
+
+    expect(
+      submitTask(confirmed.taskBook, {
+        taskId: "task-brush-teeth",
+        submissionId: "submission-next-china-day",
+        submittedAt: "2026-05-11T16:30:00.000Z",
+      }),
+    ).toMatchObject({
+      ok: true,
+    });
+  });
+
+  it("rejects duplicate pending confirmations for the same completion window", () => {
+    const taskBook: TaskBook = {
+      ...createTaskBook(),
+      submissions: [
+        {
+          id: "submission-1",
+          taskId: "task-brush-teeth",
+          titleSnapshot: "认真刷牙",
+          flowerValueSnapshot: 2,
+          status: "pending",
+          submittedAt: "2026-05-11T01:00:00.000Z",
+          confirmedAt: null,
+        },
+        {
+          id: "submission-2",
+          taskId: "task-brush-teeth",
+          titleSnapshot: "认真刷牙",
+          flowerValueSnapshot: 2,
+          status: "pending",
+          submittedAt: "2026-05-11T02:00:00.000Z",
+          confirmedAt: null,
+        },
+      ],
+    };
+    const first = expectOk(
+      confirmTaskSubmission(taskBook, createEmptyRedFlowerAccount(now), {
+        submissionId: "submission-1",
+        confirmedAt: "2026-05-11T03:00:00.000Z",
+        ledgerEntryId: "ledger-1",
+      }),
+    );
+
+    expect(
+      confirmTaskSubmission(first.taskBook, first.redFlowers, {
+        submissionId: "submission-2",
+        confirmedAt: "2026-05-11T04:00:00.000Z",
+        ledgerEntryId: "ledger-2",
+      }),
+    ).toEqual({
+      ok: false,
+      error: expect.objectContaining({
+        code: "TASK_ALREADY_CONFIRMED",
+      }),
+    });
+    expect(first.redFlowers.ledger).toHaveLength(1);
+  });
+
+  it("archives a one-time goal after confirmation", () => {
+    const submitted = expectOk(
+      submitTask(createTaskBook(), {
+        taskId: "task-tie-shoes",
+        submissionId: "submission-goal",
+        submittedAt: now,
+      }),
+    );
+
+    const confirmed = expectOk(
+      confirmTaskSubmission(submitted.taskBook, createEmptyRedFlowerAccount(now), {
+        submissionId: "submission-goal",
+        confirmedAt: "2026-04-25T09:00:00.000Z",
+        ledgerEntryId: "ledger-goal",
+      }),
+    );
+
+    expect(confirmed.taskBook.tasks.find((task) => task.id === "task-tie-shoes")).toMatchObject({
+      status: "archived",
+    });
+  });
+
   it("approves a wish redemption, spends available flowers, and keeps cumulative flowers", () => {
     const redFlowers = createEmptyRedFlowerAccount(now);
     const earned = earnTwelveFlowers(createTaskBook(), redFlowers);
@@ -209,7 +378,6 @@ describe("red flower domain rules", () => {
           redemptionId: "redemption-1",
           approvedAt: "2026-04-25T11:00:00.000Z",
           ledgerEntryId: "ledger-2",
-          decorationId: "decoration-1",
         },
       ),
     );
@@ -242,7 +410,6 @@ describe("red flower domain rules", () => {
       redemptionId: "redemption-1",
       approvedAt: "2026-04-25T11:00:00.000Z",
       ledgerEntryId: "ledger-2",
-      decorationId: "decoration-1",
     });
 
     expect(approved).toEqual({
@@ -258,7 +425,7 @@ describe("red flower domain rules", () => {
     expect(garden.memorialDecorations).toHaveLength(0);
   });
 
-  it("creates exactly one memorial decoration for an approved wish redemption", () => {
+  it("does not create memorial decorations for an approved wish redemption", () => {
     const redFlowers = createEmptyRedFlowerAccount(now);
     const earned = earnTwelveFlowers(createTaskBook(), redFlowers);
     const requested = expectOk(
@@ -278,18 +445,10 @@ describe("red flower domain rules", () => {
           redemptionId: "redemption-1",
           approvedAt: "2026-04-25T11:00:00.000Z",
           ledgerEntryId: "ledger-2",
-          decorationId: "decoration-1",
         },
       ),
     );
 
-    expect(approved.garden.memorialDecorations).toEqual([
-      {
-        id: "decoration-1",
-        wishRedemptionId: "redemption-1",
-        kind: "wish_memorial",
-        createdAt: "2026-04-25T11:00:00.000Z",
-      },
-    ]);
+    expect(approved.garden.memorialDecorations).toEqual([]);
   });
 });

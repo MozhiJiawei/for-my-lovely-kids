@@ -4,7 +4,7 @@ import { loadDomainState, resetToDefaultFixture } from "../repositories/state";
 
 export async function registerTestRoutes(app: FastifyInstance): Promise<void> {
   app.post("/__test/reset", async (_request, reply) => {
-    if (process.env.NODE_ENV !== "test") {
+    if (process.env.NODE_ENV === "production") {
       return reply.code(404).send({
         error: {
           code: "NOT_FOUND",
