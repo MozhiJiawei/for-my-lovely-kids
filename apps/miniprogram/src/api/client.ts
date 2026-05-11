@@ -109,6 +109,12 @@ export function loadState(config: ApiConfig): Promise<PrototypeState> {
 }
 
 export function resetTestData(config: ApiConfig): Promise<PrototypeState> {
+  if (!isLocalApiBaseUrl(config.baseUrl)) {
+    return Promise.reject(
+      new PrototypeApiError("公网 API 不允许重置数据库，请切换到本机服务。", "LOCAL_RESET_ONLY"),
+    );
+  }
+
   return request<PrototypeState>({
     config,
     path: "/__test/reset",
@@ -347,3 +353,4 @@ function buildCandidateBaseUrls(baseUrl: string): string[] {
 
   return Array.from(new Set(urls));
 }
+import { isLocalApiBaseUrl } from "../config/api";

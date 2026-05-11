@@ -9,8 +9,9 @@ HOST_PORT=${HOST_PORT:-3000}
 CONTAINER_PORT=${CONTAINER_PORT:-3000}
 NODE_IMAGE=${NODE_IMAGE:-m.daocloud.io/docker.io/library/node:22-bookworm-slim}
 NPM_REGISTRY=${NPM_REGISTRY:-https://registry.npmmirror.com}
-ENABLE_PROTOTYPE_RESET=${ENABLE_PROTOTYPE_RESET:-0}
 RUN_PRE_DEPLOY_BACKUP=${RUN_PRE_DEPLOY_BACKUP:-1}
+FORCE_REBUILD=${FORCE_REBUILD:-0}
+FORCE_RECREATE=${FORCE_RECREATE:-0}
 
 cd "$APP_DIR"
 
@@ -28,27 +29,66 @@ if [ ! -f deploy/api.env ]; then
 DATABASE_URL=file:/data/red-flower-prod.db
 FAMILY_ACCESS_TOKEN=$family_token
 PARENT_ACCESS_TOKEN=$parent_token
-ENABLE_PROTOTYPE_RESET=$ENABLE_PROTOTYPE_RESET
 EOF
   chmod 600 deploy/api.env
-else
-  if grep -q '^ENABLE_PROTOTYPE_RESET=' deploy/api.env; then
-    sed -i "s/^ENABLE_PROTOTYPE_RESET=.*/ENABLE_PROTOTYPE_RESET=$ENABLE_PROTOTYPE_RESET/" deploy/api.env
-  else
-    printf '\nENABLE_PROTOTYPE_RESET=%s\n' "$ENABLE_PROTOTYPE_RESET" >> deploy/api.env
+fi
+
+image_exists() {
+  docker image inspect "$IMAGE_NAME" >/dev/null 2>&1
+}
+
+build_image() {
+  docker_build_args=()
+  if [ -n "${DOCKER_BUILD_PROGRESS:-}" ]; then
+    docker_build_args+=(--progress="$DOCKER_BUILD_PROGRESS")
   fi
+
+  docker build \
+    "${docker_build_args[@]}" \
+    --build-arg "NODE_IMAGE=$NODE_IMAGE" \
+    --build-arg "NPM_REGISTRY=$NPM_REGISTRY" \
+    -t "$IMAGE_NAME" .
+}
+
+container_has_code_mounts() {
+  docker inspect "$CONTAINER_NAME" \
+    --format '{{range .Mounts}}{{println .Destination}}{{end}}' 2>/dev/null |
+    grep -qx '/app/apps/api/src' &&
+    docker inspect "$CONTAINER_NAME" \
+      --format '{{range .Mounts}}{{println .Destination}}{{end}}' 2>/dev/null |
+      grep -qx '/app/packages/domain/src'
+}
+
+wait_for_health() {
+  for _ in $(seq 1 20); do
+    if curl -fsS "http://127.0.0.1:$HOST_PORT/health" >/dev/null; then
+      docker container ls --filter "name=$CONTAINER_NAME" --format 'table {{.Names}}\t{{.Status}}\t{{.Ports}}'
+      curl -fsS "http://127.0.0.1:$HOST_PORT/health"
+      echo
+      return 0
+    fi
+
+    sleep 1
+  done
+
+  docker logs --tail 80 "$CONTAINER_NAME" 2>&1 || true
+  echo "API did not become healthy on port $HOST_PORT" >&2
+  return 1
+}
+
+if [ "$FORCE_REBUILD" = "1" ] || ! image_exists; then
+  build_image
+else
+  echo "Using existing image $IMAGE_NAME. Set FORCE_REBUILD=1 to rebuild dependencies/runtime." >&2
 fi
 
-docker_build_args=()
-if [ -n "${DOCKER_BUILD_PROGRESS:-}" ]; then
-  docker_build_args+=(--progress="$DOCKER_BUILD_PROGRESS")
+if docker inspect "$CONTAINER_NAME" >/dev/null 2>&1 &&
+  [ "$FORCE_RECREATE" != "1" ] &&
+  container_has_code_mounts; then
+  docker restart "$CONTAINER_NAME" >/dev/null
+  wait_for_health
+  exit $?
 fi
-
-docker build \
-  "${docker_build_args[@]}" \
-  --build-arg "NODE_IMAGE=$NODE_IMAGE" \
-  --build-arg "NPM_REGISTRY=$NPM_REGISTRY" \
-  -t "$IMAGE_NAME" .
 
 if [ "$RUN_PRE_DEPLOY_BACKUP" = "1" ]; then
   if docker inspect "$CONTAINER_NAME" >/dev/null 2>&1; then
@@ -91,6 +131,8 @@ if ! docker run -d \
   -e HOST=0.0.0.0 \
   -e "PORT=$CONTAINER_PORT" \
   -p "$HOST_PORT:$CONTAINER_PORT" \
+  -v "$APP_DIR/apps/api/src:/app/apps/api/src:ro" \
+  -v "$APP_DIR/packages/domain/src:/app/packages/domain/src:ro" \
   -v "$DATA_VOLUME:/data" \
   "$IMAGE_NAME" >/dev/null; then
   rollback_previous_container
@@ -98,21 +140,12 @@ if ! docker run -d \
   exit 1
 fi
 
-for _ in $(seq 1 20); do
-  if curl -fsS "http://127.0.0.1:$HOST_PORT/health" >/dev/null; then
-    docker ps --filter "name=$CONTAINER_NAME" --format 'table {{.Names}}\t{{.Status}}\t{{.Ports}}'
-    curl -fsS "http://127.0.0.1:$HOST_PORT/health"
-    echo
-    if [ -n "$previous_container" ]; then
-      docker rm -f "$previous_container" >/dev/null 2>&1 || true
-    fi
-    exit 0
+if wait_for_health; then
+  if [ -n "$previous_container" ]; then
+    docker rm -f "$previous_container" >/dev/null 2>&1 || true
   fi
+  exit 0
+fi
 
-  sleep 1
-done
-
-docker logs --tail 80 "$CONTAINER_NAME" 2>&1 || true
 rollback_previous_container
-echo "API did not become healthy on port $HOST_PORT" >&2
 exit 1

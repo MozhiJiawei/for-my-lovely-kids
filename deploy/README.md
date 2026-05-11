@@ -13,25 +13,34 @@ bash deploy/deploy-api.sh
 
 The script:
 
-- creates `deploy/api.env` with random prototype tokens if it is missing
-- builds `red-flower-garden-api:local`
+- creates `deploy/api.env` with random API tokens if it is missing
+- builds `red-flower-garden-api:local` only when the image is missing or `FORCE_REBUILD=1`
 - uses DaoCloud's Node image mirror and npmmirror by default for mainland network reliability
-- creates a verified pre-deployment SQLite backup when an existing API container is present
-- starts `red-flower-garden-api` on port `3000`
+- mounts API and domain source code read-only from the server checkout into the container
+- restarts the existing mounted container for ordinary source-only changes
+- creates a verified pre-deployment SQLite backup when an existing API container must be recreated
+- starts or restarts `red-flower-garden-api` on port `3000`
 - rolls back to the previous container if the replacement fails its health check
 - stores SQLite data in the Docker volume `red-flower-data`
 - verifies `GET /health`
 
-For prototype phone testing only, enable the reset endpoint:
+For source-only backend changes, sync the repository on the server and run:
 
 ```bash
-ENABLE_PROTOTYPE_RESET=1 bash deploy/deploy-api.sh
+bash deploy/deploy-api.sh
+```
+
+For dependency, Dockerfile, Prisma client generation, or package metadata changes, rebuild the
+runtime image explicitly:
+
+```bash
+FORCE_REBUILD=1 bash deploy/deploy-api.sh
 ```
 
 For a default Docker Hub/npmjs build instead:
 
 ```bash
-NODE_IMAGE=node:22-bookworm-slim NPM_REGISTRY=https://registry.npmjs.org/ bash deploy/deploy-api.sh
+FORCE_REBUILD=1 NODE_IMAGE=node:22-bookworm-slim NPM_REGISTRY=https://registry.npmjs.org/ bash deploy/deploy-api.sh
 ```
 
 ## Compose
@@ -45,6 +54,8 @@ docker compose up -d --build
 ```
 
 The production API listens inside the container on `PORT=3000` and persists SQLite at `/data/red-flower-prod.db`.
+API and domain source code are bind-mounted into the container, so source-only changes need a
+container restart rather than an image rebuild.
 
 ## Backup And Restore
 
@@ -164,22 +175,13 @@ Restore a specific OSS object:
 CONFIRM_RESTORE_FROM_OSS=restore bash deploy/restore-sqlite-from-oss.sh red-flower-garden/backups/prod/red-flower-prod-YYYYMMDDTHHMMSSZ.db
 ```
 
-## Reset Prototype Fixture
+## Local Development Fixture
 
-For temporary phone testing, deploy with reset enabled:
-
-```bash
-ENABLE_PROTOTYPE_RESET=1 bash deploy/deploy-api.sh
-```
-
-Then reset the current server fixture:
+The fixture reset endpoint is available only outside `NODE_ENV=production`. To reset a local API
+that is running in development mode:
 
 ```bash
 CONFIRM=reset bash deploy/reset-fixture.sh
 ```
 
-Disable reset after testing:
-
-```bash
-ENABLE_PROTOTYPE_RESET=0 bash deploy/deploy-api.sh
-```
+The script refuses non-local API URLs.

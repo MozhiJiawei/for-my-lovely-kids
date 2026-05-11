@@ -18,6 +18,8 @@ services:
     ports:
       - "3000:3000"
     volumes:
+      - ./apps/api/src:/app/apps/api/src:ro
+      - ./packages/domain/src:/app/packages/domain/src:ro
       - red-flower-data:/data
 
 volumes:

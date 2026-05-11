@@ -30,5 +30,27 @@ export function getDefaultApiBaseUrl(): string {
 }
 
 export function getApiBaseUrl(key: ApiBackendKey): string {
-  return apiBackendProfiles.find((profile) => profile.key === key)?.baseUrl ?? getDefaultApiBaseUrl();
+  return (
+    apiBackendProfiles.find((profile) => profile.key === key)?.baseUrl ?? getDefaultApiBaseUrl()
+  );
+}
+
+export function isLocalApiBaseUrl(baseUrl: string): boolean {
+  const trimmed = baseUrl.trim().toLowerCase();
+  const withoutProtocol = trimmed.replace(/^[a-z][a-z\d+.-]*:\/\//, "");
+  const hostAndPort = withoutProtocol.split(/[/?#]/)[0] ?? "";
+  const host =
+    hostAndPort.startsWith("[") && hostAndPort.includes("]")
+      ? hostAndPort.slice(1, hostAndPort.indexOf("]"))
+      : hostAndPort.split(":")[0];
+
+  return host === "localhost" || host === "127.0.0.1" || host === "::1";
+}
+
+export function isPrototypeToolsVisible(): boolean {
+  try {
+    return wx.getAccountInfoSync().miniProgram.envVersion !== "release";
+  } catch {
+    return true;
+  }
 }

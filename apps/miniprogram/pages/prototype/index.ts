@@ -13,6 +13,8 @@ import {
   apiBackendProfiles,
   getApiBaseUrl,
   getDefaultApiBaseUrl,
+  isLocalApiBaseUrl,
+  isPrototypeToolsVisible,
   prototypeApiTokens,
   type ApiBackendKey,
 } from "../../src/config/api";
@@ -93,6 +95,8 @@ type PrototypeData = {
   pendingSubmissionId: string;
   wishId: string;
   pendingRedemptionId: string;
+  enabled: boolean;
+  canResetData: boolean;
 };
 
 const initialData: PrototypeData = {
@@ -138,6 +142,8 @@ const initialData: PrototypeData = {
   pendingSubmissionId: "",
   wishId: "",
   pendingRedemptionId: "",
+  enabled: false,
+  canResetData: isLocalApiBaseUrl(getDefaultApiBaseUrl()),
 };
 
 function getConfig(data: PrototypeData) {
@@ -289,15 +295,28 @@ Page({
   data: initialData,
 
   onLoad() {
+    if (!isPrototypeToolsVisible()) {
+      wx.switchTab({
+        url: "/pages/garden-design/index",
+      });
+      return;
+    }
+
     wx.setNavigationBarTitle({
       title: "小红花原型",
+    });
+    this.setData({
+      enabled: true,
     });
     void this.refreshState();
   },
 
   updateApiBaseUrl(event: WechatMiniprogram.Input) {
+    const apiBaseUrl = event.detail.value;
+
     this.setData({
-      apiBaseUrl: event.detail.value,
+      apiBaseUrl,
+      canResetData: isLocalApiBaseUrl(apiBaseUrl),
     });
   },
 
@@ -307,6 +326,7 @@ Page({
     this.setData({
       backendKey,
       apiBaseUrl: getApiBaseUrl(backendKey),
+      canResetData: isLocalApiBaseUrl(getApiBaseUrl(backendKey)),
       message: `已切换到${backendKey === "public" ? "公网服务器" : "本机服务"}。`,
     });
   },
@@ -452,6 +472,13 @@ Page({
   },
 
   async resetTestData() {
+    if (!this.data.canResetData) {
+      this.setData({
+        message: "公网 API 不允许重置数据库，请切换到本机服务。",
+      });
+      return;
+    }
+
     this.setData({
       loading: true,
       message: "正在重置测试数据。",
@@ -469,7 +496,7 @@ Page({
     } catch (error) {
       const message =
         error instanceof Error
-          ? `${error.message}（公网重置需要服务器开启调测重置，并填写正确家长 token）`
+          ? `${error.message}（开发集重置只在本机或开发环境可用）`
           : "重置测试数据失败。";
       this.setData({
         loading: false,

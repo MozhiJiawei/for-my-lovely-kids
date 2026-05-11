@@ -1,8 +1,12 @@
 import { loadState, resetTestData, submitTask, type PrototypeState } from "../../src/api/client";
-import { getDefaultApiBaseUrl, prototypeApiTokens } from "../../src/config/api";
+import {
+  getDefaultApiBaseUrl,
+  isPrototypeToolsVisible,
+  prototypeApiTokens,
+} from "../../src/config/api";
 
 type TaskState = "ready" | "done";
-type TaskTabId = "habits" | "activeGoals" | "achievedGoals";
+type TaskTabId = "habits" | "activeGoals";
 type FlowerKind = "coral" | "sunny" | "berry" | "sky";
 
 type FlowerSlot = {
@@ -48,6 +52,7 @@ type GardenDesignData = {
   flowerSlots: FlowerSlot[];
   seedSlots: number[];
   dailyLine: string;
+  showPrototypeTools: boolean;
 };
 
 const maxVisibleFlowers = 10;
@@ -61,7 +66,6 @@ const apiConfig = {
 const taskTabLabels: Record<TaskTabId, string> = {
   habits: "我的好习惯",
   activeGoals: "我的小目标",
-  achievedGoals: "已达成的小目标",
 };
 
 function taskCopy(state: TaskState): Pick<TaskPreview, "actionText" | "stateText"> {
@@ -159,12 +163,7 @@ function deriveTasks(state: PrototypeState): TaskPreview[] {
   );
 
   return state.taskBook.tasks
-    .filter(
-      (task) =>
-        task.status === "active" ||
-        task.status === "test" ||
-        (task.status === "archived" && task.kind === "one_time"),
-    )
+    .filter((task) => task.status === "active" || task.status === "test")
     .map((task) => {
       const confirmedSubmission = confirmedSubmissionsByTaskId.get(task.id);
       const taskState: TaskState =
@@ -210,7 +209,7 @@ function visibleTasks(tasks: TaskPreview[], activeTaskTab: TaskTabId): TaskPrevi
     );
   }
 
-  return tasks.filter((task) => task.kind === "one_time" && task.status === "archived");
+  return [];
 }
 
 function deriveWishes(state: PrototypeState): WishPreview[] {
@@ -298,6 +297,7 @@ const initialData: GardenDesignData = {
   flowerSlots: [],
   seedSlots,
   dailyLine: "今天也一起把小花园照亮吧。",
+  showPrototypeTools: false,
 };
 
 let latestRefreshRequest = 0;
@@ -308,6 +308,9 @@ Page({
   onLoad() {
     wx.setNavigationBarTitle({
       title: "小红花花园",
+    });
+    this.setData({
+      showPrototypeTools: isPrototypeToolsVisible(),
     });
   },
 
@@ -358,6 +361,10 @@ Page({
   },
 
   openPrototypeTools() {
+    if (!this.data.showPrototypeTools) {
+      return;
+    }
+
     wx.navigateTo({
       url: "/pages/prototype/index",
     });

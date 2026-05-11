@@ -83,6 +83,7 @@ beforeEach(() => {
   process.env.NODE_ENV = "test";
   delete process.env.FAMILY_ACCESS_TOKEN;
   delete process.env.PARENT_ACCESS_TOKEN;
+  delete process.env.HOST;
   process.env.DATABASE_URL = `file:${join(tempDir, "test.db").replaceAll("\\", "/")}`;
   prisma = new PrismaClient();
 });
@@ -91,6 +92,7 @@ afterEach(async () => {
   await prisma?.$disconnect();
   delete process.env.FAMILY_ACCESS_TOKEN;
   delete process.env.PARENT_ACCESS_TOKEN;
+  delete process.env.HOST;
   rmSync(tempDir, { recursive: true, force: true });
 });
 
@@ -1790,6 +1792,57 @@ describe("red flower API flow", () => {
     });
 
     expect(response.statusCode).toBe(404);
+
+    await app.close();
+  });
+
+  it("rejects fixture reset through a non-local API host", async () => {
+    process.env.NODE_ENV = "development";
+    const app = buildApp({ prisma: getPrisma() });
+    await app.ready();
+
+    const response = await app.inject({
+      method: "POST",
+      url: "/__test/reset",
+      headers: {
+        host: "39.105.78.135:3000",
+      },
+    });
+
+    expect(response.statusCode).toBe(403);
+    expect(response.json()).toEqual({
+      error: {
+        code: "LOCAL_RESET_ONLY",
+        message:
+          "Database reset is only available when the API listens on and is reached through localhost or 127.0.0.1.",
+      },
+    });
+
+    await app.close();
+  });
+
+  it("rejects fixture reset when the API listens on a public interface", async () => {
+    process.env.NODE_ENV = "development";
+    process.env.HOST = "0.0.0.0";
+    const app = buildApp({ prisma: getPrisma() });
+    await app.ready();
+
+    const response = await app.inject({
+      method: "POST",
+      url: "/__test/reset",
+      headers: {
+        host: "127.0.0.1:3000",
+      },
+    });
+
+    expect(response.statusCode).toBe(403);
+    expect(response.json()).toEqual({
+      error: {
+        code: "LOCAL_RESET_ONLY",
+        message:
+          "Database reset is only available when the API listens on and is reached through localhost or 127.0.0.1.",
+      },
+    });
 
     await app.close();
   });

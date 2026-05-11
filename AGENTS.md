@@ -52,7 +52,7 @@ corepack pnpm run ci
 - The Linux server app directory is `/opt/red-flower-garden`.
 - The API runs in Docker: container `red-flower-garden-api`, image `red-flower-garden-api:local`, volume `red-flower-data`.
 - The production SQLite path inside the container is `/data/red-flower-prod.db`.
-- Deployment entrypoint: `deploy/deploy-api.sh`. It builds the image, starts the container, checks `/health`, and triggers a pre-deploy backup when an existing container is present.
+- Deployment entrypoint: `deploy/deploy-api.sh`. The image carries runtime dependencies and the start command; API/domain source code is mounted read-only from `/opt/red-flower-garden` into the container. Ordinary backend code changes should sync the repository and restart/recreate the container with these mounts, not rebuild the image. Rebuild only when dependencies, Dockerfile/runtime packages, Prisma client generation requirements, or package metadata change; use `FORCE_REBUILD=1 bash deploy/deploy-api.sh` for that path.
 - Server-side object storage config lives at `/etc/red-flower-garden/object-storage.env`; the repo only keeps `deploy/object-storage.env.example`.
 - Current OSS bucket: `mozhi-red-flower-garden`; region: `oss-cn-guangzhou`; app-level prefix: `red-flower-garden/`. Backup and future image/object features should share this app root and use separate child prefixes.
 - Backup, verification, local restore, OSS restore, and scheduled backup are internal `deploy` capabilities. Monitoring or maintenance pages should reuse those scripts or equivalent semantics instead of reimplementing data safety logic. See `deploy/README.md` for commands.
