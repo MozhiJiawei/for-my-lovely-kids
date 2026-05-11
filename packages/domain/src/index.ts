@@ -35,13 +35,15 @@ export type {
   ApproveWishRedemptionValue,
   CreateWishInput,
   RequestWishRedemptionInput,
+  UpdateWishInput,
   Wish,
   WishBook,
+  WishKind,
   WishRedemption,
   WishRedemptionStatus,
   WishStatus,
 } from "./wishes";
-export { approveWishRedemption, createWish, requestWishRedemption } from "./wishes";
+export { approveWishRedemption, createWish, requestWishRedemption, updateWish } from "./wishes";
 
 export function getDomainSmokeMessage(): string {
   return "red-flower-domain-ready";

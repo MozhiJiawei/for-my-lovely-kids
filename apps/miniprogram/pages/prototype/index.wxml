@@ -118,6 +118,20 @@
       bindinput="updateNewWishFlowerCost"
       placeholder="需要小红花"
     />
+    <radio-group class="radio-row" bindchange="updateNewWishKind">
+      <label class="radio-label">
+        <radio value="one_time" checked="{{newWishKind === 'one_time'}}" />
+        一次性心愿
+      </label>
+      <label class="radio-label">
+        <radio value="repeating" checked="{{newWishKind === 'repeating'}}" />
+        可重复心愿
+      </label>
+    </radio-group>
+    <view class="switch-line">
+      <text>首页置顶</text>
+      <switch checked="{{newWishPinned}}" bindchange="updateNewWishPinned" />
+    </view>
     <button class="button full" loading="{{loading}}" bindtap="saveWish">保存愿望</button>
     <button class="button full" loading="{{loading}}" bindtap="refreshState">重新读取愿望列表</button>
 

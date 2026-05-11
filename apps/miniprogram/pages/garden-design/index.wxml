@@ -65,7 +65,7 @@
       class="wish-bubble {{item.enough ? 'wish-ready' : ''}}"
       data-id="{{item.id}}"
       data-title="{{item.title}}"
-      bindtap="requestWish"
+      bindtap="openWishDetail"
     >
       <view class="wish-title">{{item.title}}</view>
       <view class="wish-progress">

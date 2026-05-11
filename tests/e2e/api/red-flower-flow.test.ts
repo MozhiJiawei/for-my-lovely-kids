@@ -44,6 +44,22 @@ afterEach(async () => {
 });
 
 describe("red flower API flow", () => {
+  it("serves domain state as a non-cacheable source of truth", async () => {
+    const app = buildApp({ prisma: getPrisma() });
+    await app.ready();
+
+    const state = await app.inject({
+      method: "GET",
+      url: "/api/state",
+      headers: familyHeaders,
+    });
+
+    expect(state.statusCode).toBe(200);
+    expect(state.headers["cache-control"]).toBe("no-store");
+
+    await app.close();
+  });
+
   it("lets parent create task and wish records through the API", async () => {
     const app = buildApp({ prisma: getPrisma() });
     await app.ready();
@@ -89,6 +105,8 @@ describe("red flower API flow", () => {
       wish: {
         title: "买一本新绘本",
         flowerCost: 6,
+        kind: "one_time",
+        pinned: false,
         status: "active",
       },
     });
@@ -108,6 +126,94 @@ describe("red flower API flow", () => {
       }),
     ).resolves.toMatchObject({
       flowerCost: 6,
+      kind: "one_time",
+      pinned: false,
+      status: "active",
+    });
+
+    await app.close();
+  });
+
+  it("persists wish management fields and updates them through the API", async () => {
+    const app = buildApp({ prisma: getPrisma() });
+    await app.ready();
+
+    await app.inject({
+      method: "POST",
+      url: "/__test/reset",
+    });
+
+    const created = await app.inject({
+      method: "POST",
+      url: "/api/parent/wishes",
+      headers: parentHeaders,
+      payload: {
+        title: "每周一次家庭电影夜",
+        flowerCost: 8,
+        kind: "repeating",
+        pinned: true,
+      },
+    });
+
+    expect(created.statusCode).toBe(200);
+    const wishId = created.json().wish.id as string;
+    expect(created.json()).toMatchObject({
+      wish: {
+        id: wishId,
+        title: "每周一次家庭电影夜",
+        flowerCost: 8,
+        kind: "repeating",
+        pinned: true,
+        status: "active",
+      },
+    });
+
+    const updated = await app.inject({
+      method: "POST",
+      url: `/api/parent/wishes/${wishId}`,
+      headers: parentHeaders,
+      payload: {
+        title: "家庭电影夜",
+        flowerCost: 7,
+        kind: "one_time",
+        pinned: false,
+      },
+    });
+
+    expect(updated.statusCode).toBe(200);
+    expect(updated.json()).toMatchObject({
+      wish: {
+        id: wishId,
+        title: "家庭电影夜",
+        flowerCost: 7,
+        kind: "one_time",
+        pinned: false,
+        status: "active",
+      },
+      state: {
+        wishBook: {
+          wishes: expect.arrayContaining([
+            expect.objectContaining({
+              id: wishId,
+              title: "家庭电影夜",
+              flowerCost: 7,
+              kind: "one_time",
+              pinned: false,
+            }),
+          ]),
+        },
+      },
+    });
+
+    await expect(
+      getPrisma().wish.findUniqueOrThrow({
+        where: { id: wishId },
+      }),
+    ).resolves.toMatchObject({
+      title: "家庭电影夜",
+      flowerCost: 7,
+      kind: "one_time",
+      pinned: false,
       status: "active",
     });
 
@@ -172,6 +278,69 @@ describe("red flower API flow", () => {
           expect.objectContaining({
             id: "test-wish-ice-cream",
             status: "test",
+          }),
+        ]),
+      },
+    });
+
+    await app.close();
+  });
+
+  it("migrates legacy wish tables with default management fields", async () => {
+    await getPrisma().$executeRawUnsafe(`
+      CREATE TABLE IF NOT EXISTS "Wish" (
+        "id" TEXT NOT NULL PRIMARY KEY,
+        "title" TEXT NOT NULL,
+        "flowerCost" INTEGER NOT NULL,
+        "status" TEXT NOT NULL,
+        "sortOrder" INTEGER NOT NULL,
+        "createdAt" DATETIME NOT NULL,
+        "updatedAt" DATETIME NOT NULL
+      )
+    `);
+    await getPrisma().$executeRawUnsafe(`
+      CREATE TABLE IF NOT EXISTS "RedFlowerBalance" (
+        "id" TEXT NOT NULL PRIMARY KEY,
+        "available" INTEGER NOT NULL,
+        "cumulative" INTEGER NOT NULL,
+        "updatedAt" DATETIME NOT NULL
+      )
+    `);
+    await getPrisma().$executeRawUnsafe(`
+      INSERT INTO "Wish" ("id", "title", "flowerCost", "status", "sortOrder", "createdAt", "updatedAt")
+      VALUES ('legacy-wish', 'Legacy wish', 5, 'active', 99, '2026-05-10T00:00:00.000Z', '2026-05-10T00:00:00.000Z')
+    `);
+    await getPrisma().redFlowerBalance.create({
+      data: {
+        id: "default-red-flower-balance",
+        available: 0,
+        cumulative: 0,
+        updatedAt: new Date("2026-04-25T08:00:00.000Z"),
+      },
+    });
+
+    const app = buildApp({ prisma: getPrisma() });
+    await app.ready();
+
+    const columns =
+      await getPrisma().$queryRawUnsafe<Array<{ name: string }>>(`PRAGMA table_info("Wish")`);
+    const state = await app.inject({
+      method: "GET",
+      url: "/api/state",
+      headers: familyHeaders,
+    });
+
+    expect(columns.map((column) => column.name)).toEqual(
+      expect.arrayContaining(["kind", "pinned"]),
+    );
+    expect(state.statusCode).toBe(200);
+    expect(state.json()).toMatchObject({
+      wishBook: {
+        wishes: expect.arrayContaining([
+          expect.objectContaining({
+            id: "legacy-wish",
+            kind: "one_time",
+            pinned: false,
           }),
         ]),
       },
@@ -600,6 +769,16 @@ describe("red flower API flow", () => {
         garden: {
           memorialDecorations: [],
         },
+        wishBook: {
+          wishes: expect.arrayContaining([
+            expect.objectContaining({
+              id: "test-wish-carousel",
+              kind: "one_time",
+              pinned: false,
+              status: "archived",
+            }),
+          ]),
+        },
       },
     });
 
@@ -705,12 +884,229 @@ describe("red flower API flow", () => {
       flowerCostSnapshot: 10,
     });
     await expect(
+      getPrisma().wish.findUniqueOrThrow({
+        where: { id: "test-wish-carousel" },
+      }),
+    ).resolves.toMatchObject({
+      kind: "one_time",
+      pinned: false,
+      status: "archived",
+    });
+    await expect(
       getPrisma().memorialDecoration.count({
         where: { wishRedemptionId: redemptionId },
       }),
     ).resolves.toBe(0);
 
     await app.close();
+  });
+
+  it("keeps a repeating wish active and redeemable after multiple child redemptions", async () => {
+    const app = buildApp({ prisma: getPrisma() });
+    await app.ready();
+
+    await app.inject({
+      method: "POST",
+      url: "/__test/reset",
+    });
+
+    for (const taskId of [
+      "test-task-brush-teeth",
+      "test-task-reading",
+      "test-task-tie-shoes",
+      "test-task-write-name",
+    ]) {
+      const response = await app.inject({
+        method: "POST",
+        url: "/api/child/task-submissions",
+        headers: familyHeaders,
+        payload: { taskId },
+      });
+
+      expect(response.statusCode).toBe(200);
+    }
+
+    const first = await app.inject({
+      method: "POST",
+      url: "/api/child/wish-redemptions/redeem",
+      headers: familyHeaders,
+      payload: {
+        wishId: "test-wish-ice-cream",
+      },
+    });
+    const second = await app.inject({
+      method: "POST",
+      url: "/api/child/wish-redemptions/redeem",
+      headers: familyHeaders,
+      payload: {
+        wishId: "test-wish-ice-cream",
+      },
+    });
+
+    expect(first.statusCode).toBe(200);
+    expect(second.statusCode).toBe(200);
+    expect(second.json()).toMatchObject({
+      state: {
+        redFlowers: {
+          balance: {
+            available: 9,
+            cumulative: 17,
+          },
+        },
+        wishBook: {
+          wishes: expect.arrayContaining([
+            expect.objectContaining({
+              id: "test-wish-ice-cream",
+              kind: "repeating",
+              status: "test",
+            }),
+          ]),
+          redemptions: expect.arrayContaining([
+            expect.objectContaining({
+              wishId: "test-wish-ice-cream",
+              status: "approved",
+              flowerCostSnapshot: 4,
+            }),
+          ]),
+        },
+      },
+    });
+
+    await expect(
+      getPrisma().wish.findUniqueOrThrow({
+        where: { id: "test-wish-ice-cream" },
+      }),
+    ).resolves.toMatchObject({
+      kind: "repeating",
+      status: "test",
+    });
+    await expect(
+      getPrisma().wishRedemption.count({
+        where: {
+          wishId: "test-wish-ice-cream",
+          status: "approved",
+        },
+      }),
+    ).resolves.toBe(2);
+    await expect(
+      getPrisma().redFlowerBalance.findUniqueOrThrow({
+        where: { id: "default-red-flower-balance" },
+      }),
+    ).resolves.toMatchObject({
+      available: 9,
+      cumulative: 17,
+    });
+
+    await app.close();
+  });
+
+  it("rejects duplicate one-time wish redemption requests without charging twice", async () => {
+    const app = buildApp({ prisma: getPrisma() });
+    await app.ready();
+
+    await app.inject({
+      method: "POST",
+      url: "/__test/reset",
+    });
+
+    const first = await app.inject({
+      method: "POST",
+      url: "/api/child/wish-redemptions",
+      headers: familyHeaders,
+      payload: {
+        wishId: "test-wish-carousel",
+      },
+    });
+    const duplicate = await app.inject({
+      method: "POST",
+      url: "/api/child/wish-redemptions",
+      headers: familyHeaders,
+      payload: {
+        wishId: "test-wish-carousel",
+      },
+    });
+
+    expect(first.statusCode).toBe(200);
+    expect(duplicate.statusCode).toBe(400);
+    expect(duplicate.json()).toEqual({
+      error: {
+        code: "WISH_ALREADY_REDEEMED",
+        message: "One-time wish has already been redeemed.",
+      },
+    });
+    await expect(
+      getPrisma().wishRedemption.count({
+        where: { wishId: "test-wish-carousel" },
+      }),
+    ).resolves.toBe(1);
+
+    await app.close();
+  });
+
+  it("keeps redeemed one-time fixture wishes archived after app restart", async () => {
+    const app = buildApp({ prisma: getPrisma() });
+    await app.ready();
+
+    await app.inject({
+      method: "POST",
+      url: "/__test/reset",
+    });
+
+    for (const taskId of ["test-task-brush-teeth", "test-task-reading", "test-task-tie-shoes"]) {
+      const response = await app.inject({
+        method: "POST",
+        url: "/api/child/task-submissions",
+        headers: familyHeaders,
+        payload: { taskId },
+      });
+
+      expect(response.statusCode).toBe(200);
+    }
+
+    const redeemed = await app.inject({
+      method: "POST",
+      url: "/api/child/wish-redemptions/redeem",
+      headers: familyHeaders,
+      payload: {
+        wishId: "test-wish-carousel",
+      },
+    });
+
+    expect(redeemed.statusCode).toBe(200);
+    await app.close();
+
+    const restarted = buildApp({ prisma: getPrisma() });
+    await restarted.ready();
+
+    const state = await restarted.inject({
+      method: "GET",
+      url: "/api/state",
+      headers: familyHeaders,
+    });
+
+    expect(state.statusCode).toBe(200);
+    expect(state.json()).toMatchObject({
+      wishBook: {
+        wishes: expect.arrayContaining([
+          expect.objectContaining({
+            id: "test-wish-carousel",
+            kind: "one_time",
+            pinned: false,
+            status: "archived",
+          }),
+        ]),
+      },
+    });
+    await expect(
+      getPrisma().wish.findUniqueOrThrow({
+        where: { id: "test-wish-carousel" },
+      }),
+    ).resolves.toMatchObject({
+      pinned: false,
+      status: "archived",
+    });
+
+    await restarted.close();
   });
 
   it("rejects one-step child wish redemption without persisting partial state", async () => {

@@ -20,7 +20,12 @@ export type WishState = {
   id: string;
   title: string;
   flowerCost: number;
+  kind: "repeating" | "one_time";
+  pinned: boolean;
   status: "active" | "archived" | "test";
+  sortOrder: number;
+  createdAt: string;
+  updatedAt: string;
 };
 
 export type WishRedemptionState = {
@@ -29,6 +34,8 @@ export type WishRedemptionState = {
   titleSnapshot: string;
   flowerCostSnapshot: number;
   status: "pending" | "approved";
+  requestedAt: string;
+  approvedAt: string | null;
 };
 
 export type MemorialDecorationState = {
@@ -131,11 +138,32 @@ export function createWish(
   input: {
     title: string;
     flowerCost: number;
+    kind: "repeating" | "one_time";
+    pinned: boolean;
   },
 ): Promise<{ state: PrototypeState }> {
   return request<{ state: PrototypeState }>({
     config,
     path: "/api/parent/wishes",
+    method: "POST",
+    tokenKind: "parent",
+    data: input,
+  });
+}
+
+export function updateWish(
+  config: ApiConfig,
+  wishId: string,
+  input: {
+    title: string;
+    flowerCost: number;
+    kind: "repeating" | "one_time";
+    pinned: boolean;
+  },
+): Promise<{ state: PrototypeState }> {
+  return request<{ state: PrototypeState }>({
+    config,
+    path: `/api/parent/wishes/${wishId}`,
     method: "POST",
     tokenKind: "parent",
     data: input,

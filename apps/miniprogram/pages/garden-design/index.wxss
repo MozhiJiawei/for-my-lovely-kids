@@ -640,7 +640,6 @@ page {
   align-items: center;
   justify-content: center;
   min-height: 48rpx;
-  margin-top: 12rpx;
   padding: 0 18rpx;
   border-radius: 999rpx;
   color: #6b5a24;

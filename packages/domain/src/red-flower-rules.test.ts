@@ -48,8 +48,21 @@ function createWishBook(): WishBook {
         id: "wish-carousel",
         title: "周末坐旋转木马",
         flowerCost: 10,
+        kind: "one_time",
+        pinned: true,
         status: "active",
         sortOrder: 1,
+        createdAt: now,
+        updatedAt: now,
+      },
+      {
+        id: "wish-ice-cream",
+        title: "吃一个冰淇淋",
+        flowerCost: 4,
+        kind: "repeating",
+        pinned: false,
+        status: "active",
+        sortOrder: 2,
         createdAt: now,
         updatedAt: now,
       },
@@ -450,5 +463,91 @@ describe("red flower domain rules", () => {
     );
 
     expect(approved.garden.memorialDecorations).toEqual([]);
+  });
+
+  it("archives a one-time wish after approval and removes it from pinned bubbles", () => {
+    const redFlowers = createEmptyRedFlowerAccount(now);
+    const earned = earnTwelveFlowers(createTaskBook(), redFlowers);
+    const requested = expectOk(
+      requestWishRedemption(createWishBook(), {
+        wishId: "wish-carousel",
+        redemptionId: "redemption-1",
+        requestedAt: "2026-04-25T10:00:00.000Z",
+      }),
+    );
+
+    const approved = expectOk(
+      approveWishRedemption(
+        requested.wishBook,
+        earned.redFlowers,
+        createGarden(earned.redFlowers.balance.cumulative),
+        {
+          redemptionId: "redemption-1",
+          approvedAt: "2026-04-25T11:00:00.000Z",
+          ledgerEntryId: "ledger-2",
+        },
+      ),
+    );
+
+    expect(approved.wishBook.wishes.find((wish) => wish.id === "wish-carousel")).toMatchObject({
+      kind: "one_time",
+      pinned: false,
+      status: "archived",
+      updatedAt: "2026-04-25T11:00:00.000Z",
+    });
+  });
+
+  it("rejects duplicate pending redemptions for a one-time wish", () => {
+    const requested = expectOk(
+      requestWishRedemption(createWishBook(), {
+        wishId: "wish-carousel",
+        redemptionId: "redemption-1",
+        requestedAt: "2026-04-25T10:00:00.000Z",
+      }),
+    );
+
+    expect(
+      requestWishRedemption(requested.wishBook, {
+        wishId: "wish-carousel",
+        redemptionId: "redemption-duplicate",
+        requestedAt: "2026-04-25T10:01:00.000Z",
+      }),
+    ).toEqual({
+      ok: false,
+      error: expect.objectContaining({
+        code: "WISH_ALREADY_REDEEMED",
+      }),
+    });
+  });
+
+  it("keeps a repeating wish active after approval", () => {
+    const redFlowers = createEmptyRedFlowerAccount(now);
+    const earned = earnTwelveFlowers(createTaskBook(), redFlowers);
+    const requested = expectOk(
+      requestWishRedemption(createWishBook(), {
+        wishId: "wish-ice-cream",
+        redemptionId: "redemption-repeat",
+        requestedAt: "2026-04-25T10:00:00.000Z",
+      }),
+    );
+
+    const approved = expectOk(
+      approveWishRedemption(
+        requested.wishBook,
+        earned.redFlowers,
+        createGarden(earned.redFlowers.balance.cumulative),
+        {
+          redemptionId: "redemption-repeat",
+          approvedAt: "2026-04-25T11:00:00.000Z",
+          ledgerEntryId: "ledger-repeat",
+        },
+      ),
+    );
+
+    expect(approved.wishBook.wishes.find((wish) => wish.id === "wish-ice-cream")).toMatchObject({
+      kind: "repeating",
+      status: "active",
+    });
+    expect(approved.redFlowers.balance.available).toBe(8);
   });
 });
