@@ -12,7 +12,7 @@ RUN npm config set registry "$NPM_REGISTRY" \
   && corepack prepare pnpm@10.10.0 --activate
 
 RUN apt-get update \
-  && apt-get install -y --no-install-recommends ca-certificates openssl \
+  && apt-get install -y --no-install-recommends ca-certificates openssl sqlite3 \
   && rm -rf /var/lib/apt/lists/*
 
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml tsconfig.base.json ./
