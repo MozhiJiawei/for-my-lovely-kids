@@ -130,6 +130,11 @@ page {
     inset 0 -10rpx 0 rgba(37, 128, 60, 0.12);
 }
 
+.seed-field {
+  position: absolute;
+  inset: 0;
+}
+
 .seed {
   position: absolute;
   bottom: 70rpx;
@@ -139,6 +144,7 @@ page {
   background: #8a5b2c;
   box-shadow: 0 8rpx 0 rgba(45, 103, 48, 0.14);
   transform: rotate(-18deg);
+  animation: seed-pop 0.28s ease-out both;
 }
 
 .seed::after {
@@ -206,6 +212,7 @@ page {
 
 .flower {
   position: absolute;
+  z-index: 4;
   bottom: 62rpx;
   width: 56rpx;
   height: 112rpx;
@@ -745,6 +752,33 @@ page {
   margin-top: 24rpx;
 }
 
+.task-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16rpx;
+  margin-bottom: 14rpx;
+}
+
+.task-section-title {
+  color: #2f382d;
+  font-size: 30rpx;
+  font-weight: 900;
+}
+
+.parent-settings-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 58rpx;
+  padding: 0 22rpx;
+  border-radius: 999rpx;
+  color: #61715d;
+  font-size: 23rpx;
+  font-weight: 900;
+  background: rgba(255, 255, 255, 0.84);
+}
+
 .task-tabs {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
@@ -784,7 +818,7 @@ page {
 
 .task-card {
   display: grid;
-  grid-template-columns: 72rpx minmax(0, 1fr) 190rpx;
+  grid-template-columns: 72rpx minmax(0, 1fr) 220rpx;
   align-items: center;
   gap: 16rpx;
   min-height: 128rpx;
@@ -813,6 +847,10 @@ page {
   background: #4cb86d;
 }
 
+.task-pending .task-icon {
+  background: #a66a32;
+}
+
 .task-title {
   color: #2f382d;
   font-size: 30rpx;
@@ -827,22 +865,135 @@ page {
   line-height: 1.35;
 }
 
+.task-actions {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 10rpx;
+}
+
+.task-pending .task-actions {
+  grid-template-columns: 88rpx 1fr;
+}
+
 .task-action {
   box-sizing: border-box;
   width: 100%;
-  min-height: 68rpx;
-  padding: 0 16rpx;
+  min-height: 64rpx;
+  padding: 0 12rpx;
   border-radius: 999rpx;
   color: #ffffff;
-  font-size: 24rpx;
+  font-size: 23rpx;
   font-weight: 900;
-  line-height: 68rpx;
+  line-height: 64rpx;
   text-align: center;
   background: #e24b45;
 }
 
-.task-action-disabled {
+.task-action-secondary {
+  color: #61715d;
+  background: #eef5e9;
+}
+
+.task-action-pending {
+  color: #4b341a;
+  background: #ffd166;
+}
+
+.task-action-done {
   background: #98ad8f;
+}
+
+.parent-lock-mask {
+  position: fixed;
+  z-index: 20;
+  inset: 0;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 28rpx;
+  box-sizing: border-box;
+  background: rgba(37, 52, 34, 0.36);
+}
+
+.parent-lock-panel {
+  width: 100%;
+  padding: 34rpx 30rpx 30rpx;
+  border-radius: 34rpx;
+  box-sizing: border-box;
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 24rpx 70rpx rgba(45, 59, 41, 0.24);
+}
+
+.parent-lock-title {
+  color: #2f382d;
+  font-size: 34rpx;
+  font-weight: 900;
+  text-align: center;
+}
+
+.parent-lock-subtitle {
+  margin-top: 10rpx;
+  color: #6d7a66;
+  font-size: 24rpx;
+  font-weight: 700;
+  line-height: 1.4;
+  text-align: center;
+}
+
+.passcode-dots {
+  display: flex;
+  justify-content: center;
+  gap: 24rpx;
+  margin-top: 30rpx;
+}
+
+.passcode-dot {
+  width: 22rpx;
+  height: 22rpx;
+  border: 3rpx solid #b8c5b1;
+  border-radius: 50%;
+  box-sizing: border-box;
+}
+
+.passcode-dot-filled {
+  border-color: #2f382d;
+  background: #2f382d;
+}
+
+.passcode-error {
+  min-height: 38rpx;
+  margin-top: 18rpx;
+  color: #b42318;
+  font-size: 24rpx;
+  font-weight: 800;
+  line-height: 1.4;
+  text-align: center;
+}
+
+.passcode-keypad {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16rpx;
+  margin-top: 10rpx;
+}
+
+.passcode-key {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 92rpx;
+  border-radius: 50%;
+  color: #263321;
+  font-size: 34rpx;
+  font-weight: 900;
+  background: #eef5e9;
+}
+
+.passcode-key-tool {
+  border-radius: 24rpx;
+  color: #61715d;
+  font-size: 24rpx;
+  background: transparent;
 }
 
 @keyframes sun-rise {
@@ -899,6 +1050,18 @@ page {
 
   50% {
     transform: rotate(4deg);
+  }
+}
+
+@keyframes seed-pop {
+  from {
+    opacity: 0;
+    transform: translateY(16rpx) rotate(-18deg) scale(0.5);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) rotate(-18deg) scale(1);
   }
 }
 
