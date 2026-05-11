@@ -120,6 +120,8 @@ const testWishes = [
     id: "test-wish-carousel",
     title: "[测试] 周末坐旋转木马",
     flowerCost: 10,
+    kind: "one_time",
+    pinned: true,
     status: "test",
     sortOrder: 1,
     createdAt: fixtureNow,
@@ -129,6 +131,8 @@ const testWishes = [
     id: "test-wish-picture-book",
     title: "[测试] 买一本新绘本",
     flowerCost: 6,
+    kind: "one_time",
+    pinned: false,
     status: "test",
     sortOrder: 2,
     createdAt: fixtureNow,
@@ -138,6 +142,8 @@ const testWishes = [
     id: "test-wish-ice-cream",
     title: "[测试] 吃一个冰淇淋",
     flowerCost: 4,
+    kind: "repeating",
+    pinned: false,
     status: "test",
     sortOrder: 3,
     createdAt: fixtureNow,
@@ -209,15 +215,27 @@ async function seedTestFixtures(tx: Prisma.TransactionClient): Promise<void> {
   }
 
   for (const wish of testWishes) {
-    await tx.wish.upsert({
+    const existing = await tx.wish.findUnique({
       where: { id: wish.id },
-      create: wish,
-      update: {
+      select: { status: true, updatedAt: true, pinned: true },
+    });
+    const keepArchivedWish = wish.kind === "one_time" && existing?.status === "archived";
+
+    if (!existing) {
+      await tx.wish.create({ data: wish });
+      continue;
+    }
+
+    await tx.wish.update({
+      where: { id: wish.id },
+      data: {
         title: wish.title,
         flowerCost: wish.flowerCost,
-        status: wish.status,
+        kind: wish.kind,
+        pinned: keepArchivedWish ? existing.pinned : wish.pinned,
+        status: keepArchivedWish ? "archived" : wish.status,
         sortOrder: wish.sortOrder,
-        updatedAt: wish.updatedAt,
+        updatedAt: keepArchivedWish ? existing.updatedAt : wish.updatedAt,
       },
     });
   }
@@ -320,6 +338,8 @@ export async function saveWishBook(
         id: wish.id,
         title: wish.title,
         flowerCost: wish.flowerCost,
+        kind: wish.kind,
+        pinned: wish.pinned,
         status: wish.status,
         sortOrder: wish.sortOrder,
         createdAt: new Date(wish.createdAt),
@@ -328,6 +348,8 @@ export async function saveWishBook(
       update: {
         title: wish.title,
         flowerCost: wish.flowerCost,
+        kind: wish.kind,
+        pinned: wish.pinned,
         status: wish.status,
         sortOrder: wish.sortOrder,
         updatedAt: new Date(wish.updatedAt),
@@ -359,6 +381,7 @@ export async function saveWishBookRedFlowersAndGarden(
     });
   }
 
+  await saveArchivedWishStates(tx, state.wishBook);
   await saveRedFlowerAccount(tx, state.redFlowers);
 
   for (const latestDecoration of state.garden.memorialDecorations) {
@@ -371,6 +394,26 @@ export async function saveWishBookRedFlowersAndGarden(
         createdAt: new Date(latestDecoration.createdAt),
       },
       update: {},
+    });
+  }
+}
+
+async function saveArchivedWishStates(
+  tx: Prisma.TransactionClient,
+  wishBook: WishBook,
+): Promise<void> {
+  for (const wish of wishBook.wishes) {
+    if (wish.status !== "archived") {
+      continue;
+    }
+
+    await tx.wish.update({
+      where: { id: wish.id },
+      data: {
+        status: wish.status,
+        pinned: wish.pinned,
+        updatedAt: new Date(wish.updatedAt),
+      },
     });
   }
 }

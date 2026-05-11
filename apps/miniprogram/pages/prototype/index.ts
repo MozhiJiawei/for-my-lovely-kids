@@ -61,6 +61,8 @@ type PrototypeData = {
   wishFlowerCost: number;
   newWishTitle: string;
   newWishFlowerCost: string;
+  newWishKind: "repeating" | "one_time";
+  newWishPinned: boolean;
   pendingRedemptions: Array<{
     id: string;
     title: string;
@@ -114,6 +116,8 @@ const initialData: PrototypeData = {
   wishFlowerCost: 0,
   newWishTitle: "周末坐旋转木马",
   newWishFlowerCost: "10",
+  newWishKind: "one_time",
+  newWishPinned: true,
   pendingRedemptions: [],
   approvedRedemptions: [],
   decorations: [],
@@ -358,6 +362,18 @@ Page({
     });
   },
 
+  updateNewWishKind(event: WechatMiniprogram.RadioGroupChange) {
+    this.setData({
+      newWishKind: event.detail.value === "repeating" ? "repeating" : "one_time",
+    });
+  },
+
+  updateNewWishPinned(event: WechatMiniprogram.SwitchChange) {
+    this.setData({
+      newWishPinned: event.detail.value,
+    });
+  },
+
   selectWish(event: WechatMiniprogram.TouchEvent) {
     const selectedWishIndex = Number(event.currentTarget.dataset.index);
     const wish = this.data.wishOptions[selectedWishIndex];
@@ -496,6 +512,8 @@ Page({
       const response = await createWish(getConfig(this.data), {
         title: this.data.newWishTitle,
         flowerCost,
+        kind: this.data.newWishKind,
+        pinned: this.data.newWishPinned,
       });
 
       this.setData({

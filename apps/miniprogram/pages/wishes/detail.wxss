@@ -1,0 +1,142 @@
+page {
+  background: #fff8de;
+}
+
+.page {
+  min-height: 100vh;
+  box-sizing: border-box;
+  padding: 28rpx 24rpx 44rpx;
+  color: #2f382d;
+  background: linear-gradient(180deg, #fff8de, #eefbdb 58%, #f8ffe8);
+}
+
+.hero {
+  overflow: hidden;
+  padding: 30rpx;
+  border-radius: 30rpx;
+  background: radial-gradient(circle at 20% 10%, #ffffff, #ffeaa1 44%, #ffbd70 100%);
+  box-shadow: 0 18rpx 42rpx rgba(170, 111, 34, 0.15);
+}
+
+.eyebrow {
+  color: #146a36;
+  font-size: 22rpx;
+  font-weight: 900;
+}
+
+.title {
+  margin-top: 12rpx;
+  color: #2d3b29;
+  font-size: 46rpx;
+  font-weight: 900;
+  line-height: 1.15;
+}
+
+.meta-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10rpx;
+  margin-top: 18rpx;
+}
+
+.meta-pill {
+  padding: 10rpx 16rpx;
+  border-radius: 999rpx;
+  color: #5c4f2a;
+  font-size: 23rpx;
+  font-weight: 900;
+  background: rgba(255, 255, 255, 0.72);
+}
+
+.progress {
+  overflow: hidden;
+  height: 18rpx;
+  margin-top: 24rpx;
+  border-radius: 999rpx;
+  background: rgba(255, 255, 255, 0.7);
+}
+
+.progress-fill {
+  height: 100%;
+  border-radius: 999rpx;
+  background: #e24b45;
+}
+
+.message {
+  margin-top: 18rpx;
+  color: #5c4f2a;
+  font-size: 26rpx;
+  font-weight: 800;
+  line-height: 1.45;
+}
+
+.button-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 12rpx;
+  margin-top: 22rpx;
+}
+
+.action-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  height: 76rpx;
+  padding: 0 16rpx;
+  border-radius: 999rpx;
+  font-size: 26rpx;
+  font-weight: 900;
+}
+
+.primary {
+  color: #ffffff;
+  background: #e24b45;
+}
+
+.secondary {
+  color: #2f382d;
+  background: #ffffff;
+}
+
+.action-disabled {
+  background: #98ad8f;
+}
+
+.section {
+  margin-top: 24rpx;
+  padding: 22rpx;
+  border-radius: 24rpx;
+  background: #ffffff;
+  box-shadow: 0 12rpx 30rpx rgba(72, 106, 65, 0.1);
+}
+
+.section-title {
+  color: #2f382d;
+  font-size: 30rpx;
+  font-weight: 900;
+}
+
+.balance-line,
+.empty,
+.history-meta {
+  margin-top: 12rpx;
+  color: #6d7a66;
+  font-size: 25rpx;
+  font-weight: 700;
+  line-height: 1.45;
+}
+
+.history-item {
+  margin-top: 14rpx;
+  padding-top: 14rpx;
+  border-top: 1rpx solid #edf2e8;
+}
+
+.history-title {
+  color: #2f382d;
+  font-size: 28rpx;
+  font-weight: 900;
+}

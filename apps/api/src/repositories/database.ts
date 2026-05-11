@@ -53,12 +53,16 @@ export async function initializeDatabase(db: PrismaClient): Promise<void> {
       "id" TEXT NOT NULL PRIMARY KEY,
       "title" TEXT NOT NULL,
       "flowerCost" INTEGER NOT NULL,
+      "kind" TEXT NOT NULL DEFAULT 'one_time',
+      "pinned" BOOLEAN NOT NULL DEFAULT false,
       "status" TEXT NOT NULL,
       "sortOrder" INTEGER NOT NULL,
       "createdAt" DATETIME NOT NULL,
       "updatedAt" DATETIME NOT NULL
     )
   `);
+  await addColumnIfMissing(db, "Wish", "kind", "TEXT NOT NULL DEFAULT 'one_time'");
+  await addColumnIfMissing(db, "Wish", "pinned", "BOOLEAN NOT NULL DEFAULT false");
 
   await db.$executeRawUnsafe(`
     CREATE TABLE IF NOT EXISTS "WishRedemption" (

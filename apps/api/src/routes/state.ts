@@ -9,6 +9,8 @@ export async function registerStateRoutes(app: FastifyInstance): Promise<void> {
       return;
     }
 
+    reply.header("cache-control", "no-store");
+
     return loadDomainState(app.prisma);
   });
 }

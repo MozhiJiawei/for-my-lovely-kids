@@ -1,0 +1,58 @@
+<view class="page">
+  <view class="hero">
+    <view class="sky">
+      <view class="sun"></view>
+      <view class="cloud cloud-one"></view>
+      <view class="cloud cloud-two"></view>
+      <view class="spark spark-one"></view>
+      <view class="spark spark-two"></view>
+    </view>
+
+    <view class="header">
+      <view>
+        <view class="eyebrow">心愿管理</view>
+        <view class="title">心愿泡泡</view>
+      </view>
+      <view class="add-button" bindtap="openCreateEditor">+</view>
+    </view>
+
+    <view class="flower-pill">可用小红花 {{availableFlowers}} 朵</view>
+    <view class="message">{{message}}</view>
+  </view>
+
+  <view class="section">
+    <view class="section-title">当前心愿</view>
+    <view wx:if="{{wishes.length === 0}}" class="empty">还没有心愿。</view>
+    <view wx:for="{{wishes}}" wx:key="id" class="wish-card">
+      <view class="wish-icon" data-id="{{item.id}}" bindtap="openDetail">愿</view>
+      <view class="wish-main" data-id="{{item.id}}" bindtap="openDetail">
+        <view class="wish-title">{{item.title}}</view>
+        <view class="wish-meta">
+          {{item.flowerCost}} 朵 · {{item.kindText}} · {{item.pinned ? "首页泡泡" : "自动排序"}}
+        </view>
+      </view>
+      <view class="wish-actions">
+        <view class="icon-action" data-id="{{item.id}}" bindtap="editWish">改</view>
+        <view
+          class="redeem-action {{item.enough ? '' : 'redeem-disabled'}}"
+          data-id="{{item.id}}"
+          bindtap="redeemWish"
+        >
+          兑
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <view class="section">
+    <view class="section-title">历史兑换</view>
+    <view wx:if="{{redemptions.length === 0}}" class="empty">还没有兑换记录。</view>
+    <view wx:for="{{redemptions}}" wx:key="id" class="history-card">
+      <view class="history-dot"></view>
+      <view class="history-main">
+        <view class="history-title">{{item.title}}</view>
+        <view class="history-meta">{{item.flowerCost}} 朵 · {{item.statusText}} · {{item.timeText}}</view>
+      </view>
+    </view>
+  </view>
+</view>

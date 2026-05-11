@@ -1,10 +1,4 @@
-import {
-  loadState,
-  redeemWish,
-  resetTestData,
-  submitTask,
-  type PrototypeState,
-} from "../../src/api/client";
+import { loadState, resetTestData, submitTask, type PrototypeState } from "../../src/api/client";
 
 type TaskState = "ready" | "done";
 type TaskTabId = "habits" | "activeGoals" | "achievedGoals";
@@ -32,6 +26,8 @@ type WishPreview = {
   cost: number;
   progress: number;
   enough: boolean;
+  kind: "repeating" | "one_time";
+  pinned: boolean;
 };
 
 type GardenDesignData = {
@@ -208,21 +204,42 @@ function visibleTasks(tasks: TaskPreview[], activeTaskTab: TaskTabId): TaskPrevi
 
 function deriveWishes(state: PrototypeState): WishPreview[] {
   const availableFlowers = state.redFlowers.balance.available;
+  const activeWishes = state.wishBook.wishes.filter(
+    (wish) => wish.status === "active" || wish.status === "test",
+  );
+  const pinnedWishes = activeWishes.filter((wish) => wish.pinned);
+  const unpinnedWishes = sortWishesForHome(activeWishes.filter((wish) => !wish.pinned));
+  const homeWishes = [...pinnedWishes, ...unpinnedWishes];
 
-  return state.wishBook.wishes
-    .filter((wish) => wish.status === "active" || wish.status === "test")
-    .slice(0, 3)
-    .map((wish) => {
-      const progress = Math.min(Math.floor((availableFlowers / wish.flowerCost) * 100), 100);
+  return homeWishes.slice(0, 3).map((wish) => {
+    const progress = Math.min(Math.floor((availableFlowers / wish.flowerCost) * 100), 100);
 
-      return {
-        id: wish.id,
-        title: wish.title.replace(/^\[测试\]\s*/, ""),
-        cost: wish.flowerCost,
-        progress,
-        enough: availableFlowers >= wish.flowerCost,
-      };
-    });
+    return {
+      id: wish.id,
+      title: wish.title.replace(/^\[测试\]\s*/, ""),
+      cost: wish.flowerCost,
+      progress,
+      enough: availableFlowers >= wish.flowerCost,
+      kind: wish.kind,
+      pinned: wish.pinned,
+    };
+  });
+}
+
+function sortWishesForHome(
+  wishes: PrototypeState["wishBook"]["wishes"],
+): PrototypeState["wishBook"]["wishes"] {
+  return [...wishes].sort((left, right) => {
+    if (left.kind !== right.kind) {
+      return left.kind === "one_time" ? -1 : 1;
+    }
+
+    if (left.flowerCost !== right.flowerCost) {
+      return right.flowerCost - left.flowerCost;
+    }
+
+    return left.sortOrder - right.sortOrder;
+  });
 }
 
 function deriveDataFromState(
@@ -267,6 +284,8 @@ const initialData: GardenDesignData = {
   dailyLine: "今天也一起把小花园照亮吧。",
 };
 
+let latestRefreshRequest = 0;
+
 Page({
   data: initialData,
 
@@ -274,15 +293,31 @@ Page({
     wx.setNavigationBarTitle({
       title: "小红花花园",
     });
+  },
+
+  onShow() {
     void this.refreshState();
   },
 
   async refreshState() {
+    const requestId = latestRefreshRequest + 1;
+    latestRefreshRequest = requestId;
+
     try {
       const state = await loadState(apiConfig);
 
-      this.setData(deriveDataFromState(state, this.data.activeTaskTab));
+      if (requestId !== latestRefreshRequest) {
+        return;
+      }
+
+      this.setData({
+        ...deriveDataFromState(state, this.data.activeTaskTab),
+      });
     } catch {
+      if (requestId !== latestRefreshRequest) {
+        return;
+      }
+
       this.setData({
         dailyLine: "花园暂时连不上，请稍后再试。",
       });
@@ -333,8 +368,7 @@ Page({
     try {
       const response = await submitTask(apiConfig, taskId);
       const todayFlowers = response.state.redFlowers.balance.available;
-      const activeTaskTab =
-        completedTask.kind === "one_time" ? "achievedGoals" : this.data.activeTaskTab;
+      const activeTaskTab = this.data.activeTaskTab;
 
       this.setData({
         activeTaskTab,
@@ -348,29 +382,18 @@ Page({
     }
   },
 
-  async requestWish(event: WechatMiniprogram.TouchEvent) {
+  openWishDetail(event: WechatMiniprogram.TouchEvent) {
     const wishId = String(event.currentTarget.dataset.id ?? "");
-    const title = String(event.currentTarget.dataset.title ?? "愿望");
-    const wish = this.data.wishes.find((candidate) => candidate.id === wishId);
 
-    if (!wish?.enough) {
+    if (!wishId) {
       this.setData({
-        dailyLine: `${title} 还在愿望泡泡里发光。`,
+        dailyLine: "这个愿望还没有准备好。",
       });
       return;
     }
 
-    try {
-      const response = await redeemWish(apiConfig, wishId);
-
-      this.setData({
-        ...deriveDataFromState(response.state, this.data.activeTaskTab),
-        dailyLine: `${title} 实现啦，花园还会继续长大。`,
-      });
-    } catch {
-      this.setData({
-        dailyLine: "愿望泡泡暂时没有飞出去，再试一次吧。",
-      });
-    }
+    wx.navigateTo({
+      url: `/pages/wishes/detail?id=${encodeURIComponent(wishId)}`,
+    });
   },
 });

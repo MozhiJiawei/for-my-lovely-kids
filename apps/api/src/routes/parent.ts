@@ -5,7 +5,9 @@ import {
   confirmTaskSubmission,
   createTask,
   createWish,
+  updateWish,
   type RedFlowerKind,
+  type WishKind,
 } from "@red-flower-garden/domain";
 import type { FastifyInstance } from "fastify";
 
@@ -28,6 +30,8 @@ type CreateTaskBody = {
 type CreateWishBody = {
   title?: string;
   flowerCost?: number;
+  kind?: WishKind;
+  pinned?: boolean;
 };
 
 type ConfirmTasksBody = {
@@ -98,6 +102,8 @@ export async function registerParentRoutes(app: FastifyInstance): Promise<void> 
         wishId: randomUUID(),
         title: body.title ?? "",
         flowerCost: Number(body.flowerCost),
+        kind: body.kind === "repeating" ? "repeating" : "one_time",
+        pinned: body.pinned === true,
         createdAt: now,
       });
 
@@ -119,6 +125,47 @@ export async function registerParentRoutes(app: FastifyInstance): Promise<void> 
       state: await loadDomainState(app.prisma),
     };
   });
+
+  app.post<{ Params: { id: string }; Body: CreateWishBody }>(
+    "/api/parent/wishes/:id",
+    async (request, reply) => {
+      if (!assertPrototypeAuth(request, reply, "parent")) {
+        return;
+      }
+
+      const body = request.body ?? {};
+      const now = new Date().toISOString();
+
+      const result = await app.prisma.$transaction(async (tx) => {
+        const state = await loadDomainState(tx);
+        const next = updateWish(state.wishBook, {
+          wishId: request.params.id,
+          title: body.title ?? "",
+          flowerCost: Number(body.flowerCost),
+          kind: body.kind === "repeating" ? "repeating" : "one_time",
+          pinned: body.pinned === true,
+          updatedAt: now,
+        });
+
+        if (!next.ok) {
+          return next;
+        }
+
+        await saveWishBook(tx, next.value.wishBook);
+
+        return next;
+      });
+
+      if (!result.ok) {
+        return reply.code(400).send({ error: result.error });
+      }
+
+      return {
+        wish: result.value.wish,
+        state: await loadDomainState(app.prisma),
+      };
+    },
+  );
 
   app.post<{ Body: ConfirmTasksBody }>("/api/parent/task-confirmations", async (request, reply) => {
     if (!assertPrototypeAuth(request, reply, "parent")) {

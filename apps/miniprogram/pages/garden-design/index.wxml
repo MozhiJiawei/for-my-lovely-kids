@@ -39,7 +39,9 @@
       <view class="title">早晨花园醒来</view>
       <view class="mood">每天从小种子开始，完成任务后，小红花一朵一朵开出来。</view>
       <view class="daily-line">{{dailyLine}}</view>
-      <view class="dev-reset" bindtap="resetGardenData">重置测试数据</view>
+      <view class="hero-actions">
+        <view class="dev-reset" bindtap="resetGardenData">重置测试数据</view>
+      </view>
     </view>
 
     <view class="flower-meter">
@@ -65,7 +67,7 @@
       class="wish-bubble {{item.enough ? 'wish-ready' : ''}}"
       data-id="{{item.id}}"
       data-title="{{item.title}}"
-      bindtap="requestWish"
+      bindtap="openWishDetail"
     >
       <view class="wish-title">{{item.title}}</view>
       <view class="wish-progress">

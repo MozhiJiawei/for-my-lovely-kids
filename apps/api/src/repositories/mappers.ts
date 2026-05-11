@@ -67,6 +67,8 @@ export function mapWish(wish: PrismaWish): Wish {
     id: wish.id,
     title: wish.title,
     flowerCost: wish.flowerCost,
+    kind: wish.kind === "repeating" ? "repeating" : "one_time",
+    pinned: wish.pinned,
     status: wish.status === "archived" ? "archived" : wish.status === "test" ? "test" : "active",
     sortOrder: wish.sortOrder,
     createdAt: wish.createdAt.toISOString(),

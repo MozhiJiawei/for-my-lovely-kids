@@ -3,11 +3,14 @@ import type { Garden } from "./garden";
 import { spendRedFlowers, type RedFlowerAccount } from "./red-flowers";
 
 export type WishStatus = "active" | "archived" | "test";
+export type WishKind = "repeating" | "one_time";
 
 export type Wish = {
   id: string;
   title: string;
   flowerCost: number;
+  kind: WishKind;
+  pinned: boolean;
   status: WishStatus;
   sortOrder: number;
   createdAt: string;
@@ -35,7 +38,18 @@ export type CreateWishInput = {
   wishId: string;
   title: string;
   flowerCost: number;
+  kind: WishKind;
+  pinned: boolean;
   createdAt: string;
+};
+
+export type UpdateWishInput = {
+  wishId: string;
+  title: string;
+  flowerCost: number;
+  kind: WishKind;
+  pinned: boolean;
+  updatedAt: string;
 };
 
 export type RequestWishRedemptionInput = {
@@ -66,7 +80,12 @@ export function createWish(
 }> {
   const title = input.title.trim();
 
-  if (!title || !Number.isInteger(input.flowerCost) || input.flowerCost <= 0) {
+  if (
+    !title ||
+    !Number.isInteger(input.flowerCost) ||
+    input.flowerCost <= 0 ||
+    !isWishKind(input.kind)
+  ) {
     return domainError("INVALID_WISH", "Wish title and flower cost are required.");
   }
 
@@ -80,6 +99,8 @@ export function createWish(
     id: input.wishId,
     title,
     flowerCost: input.flowerCost,
+    kind: input.kind,
+    pinned: input.pinned,
     status: "active",
     sortOrder: activeWishCount + 1,
     createdAt: input.createdAt,
@@ -92,6 +113,49 @@ export function createWish(
       wishes: [...wishBook.wishes, wish],
     },
     wish,
+  });
+}
+
+export function updateWish(
+  wishBook: WishBook,
+  input: UpdateWishInput,
+): DomainResult<{
+  wishBook: WishBook;
+  wish: Wish;
+}> {
+  const title = input.title.trim();
+  const wish = wishBook.wishes.find((candidate) => candidate.id === input.wishId);
+
+  if (!wish) {
+    return domainError("WISH_NOT_FOUND", "Wish does not exist.");
+  }
+
+  if (
+    !title ||
+    !Number.isInteger(input.flowerCost) ||
+    input.flowerCost <= 0 ||
+    !isWishKind(input.kind)
+  ) {
+    return domainError("INVALID_WISH", "Wish title and flower cost are required.");
+  }
+
+  const updatedWish: Wish = {
+    ...wish,
+    title,
+    flowerCost: input.flowerCost,
+    kind: input.kind,
+    pinned: input.pinned,
+    updatedAt: input.updatedAt,
+  };
+
+  return domainOk({
+    wishBook: {
+      ...wishBook,
+      wishes: wishBook.wishes.map((candidate) =>
+        candidate.id === updatedWish.id ? updatedWish : candidate,
+      ),
+    },
+    wish: updatedWish,
   });
 }
 
@@ -110,6 +174,10 @@ export function requestWishRedemption(
 
   if (wish.status === "archived") {
     return domainError("WISH_NOT_ACTIVE", "Wish is not active.");
+  }
+
+  if (wish.kind === "one_time" && hasExistingRedemptionForWish(wishBook, wish.id)) {
+    return domainError("WISH_ALREADY_REDEEMED", "One-time wish has already been redeemed.");
   }
 
   const redemption: WishRedemption = {
@@ -147,6 +215,28 @@ export function approveWishRedemption(
     return domainError("WISH_ALREADY_APPROVED", "Wish redemption has already been approved.");
   }
 
+  const approvedWish = wishBook.wishes.find((candidate) => candidate.id === redemption.wishId);
+
+  if (!approvedWish) {
+    return domainError("WISH_NOT_FOUND", "Wish does not exist.");
+  }
+
+  if (approvedWish.status === "archived") {
+    return domainError("WISH_NOT_ACTIVE", "Wish is not active.");
+  }
+
+  if (
+    approvedWish.kind === "one_time" &&
+    wishBook.redemptions.some(
+      (candidate) =>
+        candidate.id !== redemption.id &&
+        candidate.wishId === approvedWish.id &&
+        candidate.status === "approved",
+    )
+  ) {
+    return domainError("WISH_ALREADY_REDEEMED", "One-time wish has already been redeemed.");
+  }
+
   const nextRedFlowers = spendRedFlowers(redFlowers, {
     amount: redemption.flowerCostSnapshot,
     occurredAt: input.approvedAt,
@@ -167,6 +257,13 @@ export function approveWishRedemption(
   return domainOk({
     wishBook: {
       ...wishBook,
+      wishes: approvedWish
+        ? wishBook.wishes.map((candidate) =>
+            candidate.id === approvedWish.id && approvedWish.kind === "one_time"
+              ? { ...candidate, status: "archived", pinned: false, updatedAt: input.approvedAt }
+              : candidate,
+          )
+        : wishBook.wishes,
       redemptions: wishBook.redemptions.map((candidate) =>
         candidate.id === redemption.id ? approvedRedemption : candidate,
       ),
@@ -175,4 +272,16 @@ export function approveWishRedemption(
     garden,
     redemption: approvedRedemption,
   });
+}
+
+function isWishKind(value: string): value is WishKind {
+  return value === "repeating" || value === "one_time";
+}
+
+function hasExistingRedemptionForWish(wishBook: WishBook, wishId: string): boolean {
+  return wishBook.redemptions.some(
+    (redemption) =>
+      redemption.wishId === wishId &&
+      (redemption.status === "pending" || redemption.status === "approved"),
+  );
 }

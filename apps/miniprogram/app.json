@@ -1,6 +1,9 @@
 {
   "pages": [
     "pages/garden-design/index",
+    "pages/wishes/index",
+    "pages/wishes/edit",
+    "pages/wishes/detail",
     "pages/e2e-report/index",
     "pages/prototype/index",
     "pages/smoke/index"
@@ -10,6 +13,22 @@
     "navigationBarBackgroundColor": "#ffffff",
     "navigationBarTextStyle": "black",
     "backgroundColor": "#f7faf5"
+  },
+  "tabBar": {
+    "color": "#6d7a66",
+    "selectedColor": "#e24b45",
+    "backgroundColor": "#fbfff1",
+    "borderStyle": "white",
+    "list": [
+      {
+        "pagePath": "pages/garden-design/index",
+        "text": "花园"
+      },
+      {
+        "pagePath": "pages/wishes/index",
+        "text": "心愿"
+      }
+    ]
   },
   "style": "v2",
   "sitemapLocation": "sitemap.json"
