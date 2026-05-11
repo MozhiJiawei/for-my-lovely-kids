@@ -151,6 +151,302 @@ const testWishes = [
   },
 ];
 
+const fixtureTaskSubmissions = [
+  taskSubmission(
+    "fixture-submission-brush-2026-05-01",
+    "test-task-brush-teeth",
+    "[测试] 认真刷牙",
+    2,
+    "2026-05-01T00:30:00.000Z",
+  ),
+  taskSubmission(
+    "fixture-submission-drink-2026-05-01",
+    "test-task-drink-water",
+    "[测试] 主动喝水",
+    1,
+    "2026-05-01T02:10:00.000Z",
+  ),
+  taskSubmission(
+    "fixture-submission-brush-2026-05-02",
+    "test-task-brush-teeth",
+    "[测试] 认真刷牙",
+    2,
+    "2026-05-02T00:28:00.000Z",
+  ),
+  taskSubmission(
+    "fixture-submission-reading-2026-05-02",
+    "test-task-reading",
+    "[测试] 亲子阅读",
+    4,
+    "2026-05-02T12:00:00.000Z",
+  ),
+  taskSubmission(
+    "fixture-submission-brush-2026-05-03",
+    "test-task-brush-teeth",
+    "[测试] 认真刷牙",
+    2,
+    "2026-05-03T00:33:00.000Z",
+  ),
+  taskSubmission(
+    "fixture-submission-drink-2026-05-03",
+    "test-task-drink-water",
+    "[测试] 主动喝水",
+    1,
+    "2026-05-03T02:06:00.000Z",
+  ),
+  taskSubmission(
+    "fixture-submission-toys-2026-05-03",
+    "test-task-toys",
+    "[测试] 帮忙收玩具",
+    3,
+    "2026-05-03T09:40:00.000Z",
+    "one_time",
+  ),
+  taskSubmission(
+    "fixture-submission-reading-2026-05-04",
+    "test-task-reading",
+    "[测试] 亲子阅读",
+    4,
+    "2026-05-04T12:18:00.000Z",
+  ),
+  taskSubmission(
+    "fixture-submission-drink-2026-05-04",
+    "test-task-drink-water",
+    "[测试] 主动喝水",
+    1,
+    "2026-05-04T02:14:00.000Z",
+  ),
+  taskSubmission(
+    "fixture-submission-brush-2026-05-05",
+    "test-task-brush-teeth",
+    "[测试] 认真刷牙",
+    2,
+    "2026-05-05T00:31:00.000Z",
+  ),
+  taskSubmission(
+    "fixture-submission-drink-2026-05-05",
+    "test-task-drink-water",
+    "[测试] 主动喝水",
+    1,
+    "2026-05-05T02:05:00.000Z",
+  ),
+  taskSubmission(
+    "fixture-submission-potty-2026-05-05",
+    "test-task-go-potty",
+    "[测试] 自己上厕所",
+    2,
+    "2026-05-05T03:20:00.000Z",
+  ),
+  taskSubmission(
+    "fixture-submission-reading-2026-05-06",
+    "test-task-reading",
+    "[测试] 亲子阅读",
+    4,
+    "2026-05-06T12:11:00.000Z",
+  ),
+  taskSubmission(
+    "fixture-submission-drink-2026-05-06",
+    "test-task-drink-water",
+    "[测试] 主动喝水",
+    1,
+    "2026-05-06T02:07:00.000Z",
+  ),
+  taskSubmission(
+    "fixture-submission-potty-2026-05-06",
+    "test-task-go-potty",
+    "[测试] 自己上厕所",
+    2,
+    "2026-05-06T03:24:00.000Z",
+  ),
+  taskSubmission(
+    "fixture-submission-brush-2026-05-07",
+    "test-task-brush-teeth",
+    "[测试] 认真刷牙",
+    2,
+    "2026-05-07T00:29:00.000Z",
+  ),
+  taskSubmission(
+    "fixture-submission-drink-2026-05-07",
+    "test-task-drink-water",
+    "[测试] 主动喝水",
+    1,
+    "2026-05-07T02:16:00.000Z",
+  ),
+  taskSubmission(
+    "fixture-submission-potty-2026-05-07",
+    "test-task-go-potty",
+    "[测试] 自己上厕所",
+    2,
+    "2026-05-07T03:28:00.000Z",
+  ),
+  taskSubmission(
+    "fixture-submission-brush-2026-05-08",
+    "test-task-brush-teeth",
+    "[测试] 认真刷牙",
+    2,
+    "2026-05-08T00:32:00.000Z",
+  ),
+  taskSubmission(
+    "fixture-submission-reading-2026-05-08",
+    "test-task-reading",
+    "[测试] 亲子阅读",
+    4,
+    "2026-05-08T12:06:00.000Z",
+  ),
+  taskSubmission(
+    "fixture-submission-drink-2026-05-08",
+    "test-task-drink-water",
+    "[测试] 主动喝水",
+    1,
+    "2026-05-08T02:09:00.000Z",
+  ),
+  taskSubmission(
+    "fixture-submission-write-name-2026-05-08",
+    "test-task-write-name",
+    "[测试] 会写自己的名字",
+    6,
+    "2026-05-08T11:30:00.000Z",
+    "one_time",
+  ),
+  taskSubmission(
+    "fixture-submission-drink-2026-05-09",
+    "test-task-drink-water",
+    "[测试] 主动喝水",
+    1,
+    "2026-05-09T02:04:00.000Z",
+  ),
+  taskSubmission(
+    "fixture-submission-thanks-2026-05-09",
+    "test-task-say-thanks",
+    "[测试] 主动说谢谢",
+    1,
+    "2026-05-09T10:12:00.000Z",
+  ),
+  taskSubmission(
+    "fixture-submission-ride-bike-2026-05-09",
+    "test-task-ride-bike",
+    "[测试] 学会骑平衡车",
+    8,
+    "2026-05-09T11:45:00.000Z",
+    "one_time",
+  ),
+  taskSubmission(
+    "fixture-submission-brush-2026-05-10",
+    "test-task-brush-teeth",
+    "[测试] 认真刷牙",
+    2,
+    "2026-05-10T00:35:00.000Z",
+  ),
+  taskSubmission(
+    "fixture-submission-reading-2026-05-10",
+    "test-task-reading",
+    "[测试] 亲子阅读",
+    4,
+    "2026-05-10T12:22:00.000Z",
+  ),
+  taskSubmission(
+    "fixture-submission-drink-2026-05-10",
+    "test-task-drink-water",
+    "[测试] 主动喝水",
+    1,
+    "2026-05-10T02:03:00.000Z",
+  ),
+  taskSubmission(
+    "fixture-submission-thanks-2026-05-10",
+    "test-task-say-thanks",
+    "[测试] 主动说谢谢",
+    1,
+    "2026-05-10T10:18:00.000Z",
+  ),
+  taskSubmission(
+    "fixture-submission-count-twenty-2026-05-10",
+    "test-task-count-twenty",
+    "[测试] 从 1 数到 20",
+    4,
+    "2026-05-10T11:05:00.000Z",
+    "one_time",
+  ),
+  taskSubmission(
+    "fixture-submission-brush-2026-05-11",
+    "test-task-brush-teeth",
+    "[测试] 认真刷牙",
+    2,
+    "2026-05-11T00:34:00.000Z",
+  ),
+  taskSubmission(
+    "fixture-submission-drink-2026-05-11",
+    "test-task-drink-water",
+    "[测试] 主动喝水",
+    1,
+    "2026-05-11T02:08:00.000Z",
+  ),
+  taskSubmission(
+    "fixture-submission-thanks-2026-05-11",
+    "test-task-say-thanks",
+    "[测试] 主动说谢谢",
+    1,
+    "2026-05-11T10:25:00.000Z",
+  ),
+];
+
+const fixtureWishRedemptions = [
+  wishRedemption(
+    "fixture-redemption-carousel",
+    "test-wish-carousel",
+    "[测试] 周末坐旋转木马",
+    10,
+    "2026-05-06T06:30:00.000Z",
+  ),
+  wishRedemption(
+    "fixture-redemption-picture-book",
+    "test-wish-picture-book",
+    "[测试] 买一本新绘本",
+    6,
+    "2026-05-10T06:50:00.000Z",
+  ),
+  wishRedemption(
+    "fixture-redemption-ice-cream",
+    "test-wish-ice-cream",
+    "[测试] 吃一个冰淇淋",
+    4,
+    "2026-05-11T08:00:00.000Z",
+  ),
+];
+
+const fixtureLedgerEntries = [
+  ...fixtureTaskSubmissions.map((submission) => ({
+    id: `fixture-ledger-${submission.id.replace("fixture-submission-", "")}`,
+    type: "task_confirmed",
+    deltaAvailable: submission.flowerValueSnapshot,
+    deltaCumulative: submission.flowerValueSnapshot,
+    flowerKind: chooseFixtureFlowerKind(submission.id),
+    occurredAt: submission.confirmedAt!,
+    sourceId: submission.id,
+  })),
+  ...fixtureWishRedemptions.map((redemption) => ({
+    id: `fixture-ledger-${redemption.id.replace("fixture-redemption-", "wish-")}`,
+    type: "wish_approved",
+    deltaAvailable: -redemption.flowerCostSnapshot,
+    deltaCumulative: 0,
+    flowerKind: null,
+    occurredAt: redemption.approvedAt!,
+    sourceId: redemption.id,
+  })),
+];
+
+const fixtureCumulativeFlowers = fixtureLedgerEntries.reduce(
+  (sum, entry) => sum + entry.deltaCumulative,
+  0,
+);
+const fixtureAvailableFlowers = fixtureLedgerEntries.reduce(
+  (sum, entry) => sum + entry.deltaAvailable,
+  0,
+);
+const fixtureLastOccurredAt = fixtureLedgerEntries
+  .map((entry) => entry.occurredAt)
+  .sort()
+  .at(-1)!;
+
 export async function resetToDefaultFixture(db: PrismaClient): Promise<void> {
   await db.$transaction(async (tx) => {
     await tx.memorialDecoration.deleteMany();
@@ -162,13 +458,14 @@ export async function resetToDefaultFixture(db: PrismaClient): Promise<void> {
     await tx.redFlowerBalance.deleteMany();
 
     await seedTestFixtures(tx);
+    await seedFixtureHistory(tx);
 
     await tx.redFlowerBalance.create({
       data: {
         id: balanceId,
-        available: 0,
-        cumulative: 0,
-        updatedAt: fixtureNow,
+        available: fixtureAvailableFlowers,
+        cumulative: fixtureCumulativeFlowers,
+        updatedAt: new Date(fixtureLastOccurredAt),
       },
     });
   });
@@ -186,6 +483,76 @@ export async function ensureDefaultState(db: PrismaClient): Promise<void> {
       updatedAt: fixtureNow,
     },
     update: {},
+  });
+}
+
+async function seedFixtureHistory(tx: Prisma.TransactionClient): Promise<void> {
+  await tx.taskSubmission.createMany({
+    data: fixtureTaskSubmissions.map((submission) => ({
+      ...submission,
+      submittedAt: new Date(submission.submittedAt),
+      confirmedAt: submission.confirmedAt ? new Date(submission.confirmedAt) : null,
+    })),
+  });
+
+  await tx.wishRedemption.createMany({
+    data: fixtureWishRedemptions.map((redemption) => ({
+      ...redemption,
+      requestedAt: new Date(redemption.requestedAt),
+      approvedAt: redemption.approvedAt ? new Date(redemption.approvedAt) : null,
+    })),
+  });
+
+  await tx.redFlowerLedgerEntry.createMany({
+    data: fixtureLedgerEntries.map((entry) => ({
+      ...entry,
+      occurredAt: new Date(entry.occurredAt),
+    })),
+  });
+
+  await tx.wish.update({
+    where: { id: "test-wish-carousel" },
+    data: {
+      status: "archived",
+      pinned: false,
+      updatedAt: new Date("2026-05-06T06:30:00.000Z"),
+    },
+  });
+  await tx.wish.update({
+    where: { id: "test-wish-picture-book" },
+    data: {
+      status: "archived",
+      updatedAt: new Date("2026-05-10T06:50:00.000Z"),
+    },
+  });
+
+  await tx.task.update({
+    where: { id: "test-task-toys" },
+    data: {
+      status: "archived",
+      updatedAt: new Date("2026-05-03T09:40:00.000Z"),
+    },
+  });
+  await tx.task.update({
+    where: { id: "test-task-write-name" },
+    data: {
+      status: "archived",
+      updatedAt: new Date("2026-05-08T11:30:00.000Z"),
+    },
+  });
+  await tx.task.update({
+    where: { id: "test-task-ride-bike" },
+    data: {
+      status: "archived",
+      updatedAt: new Date("2026-05-09T11:45:00.000Z"),
+    },
+  });
+  await tx.task.update({
+    where: { id: "test-task-count-twenty" },
+    data: {
+      status: "archived",
+      updatedAt: new Date("2026-05-10T11:05:00.000Z"),
+    },
   });
 }
 
@@ -226,6 +593,58 @@ async function seedTestFixtures(tx: Prisma.TransactionClient): Promise<void> {
       },
     });
   }
+}
+
+function taskSubmission(
+  id: string,
+  taskId: string,
+  titleSnapshot: string,
+  flowerValueSnapshot: number,
+  confirmedAt: string,
+  kind: TaskKind = "repeating",
+) {
+  return {
+    id,
+    taskId,
+    titleSnapshot,
+    flowerValueSnapshot,
+    status: "confirmed",
+    submittedAt: confirmedAt,
+    confirmedAt,
+    completionKey:
+      kind === "one_time"
+        ? `one_time:${taskId}`
+        : `repeating:${taskId}:${getBusinessDayKey(confirmedAt)}`,
+  };
+}
+
+function wishRedemption(
+  id: string,
+  wishId: string,
+  titleSnapshot: string,
+  flowerCostSnapshot: number,
+  approvedAt: string,
+) {
+  return {
+    id,
+    wishId,
+    titleSnapshot,
+    flowerCostSnapshot,
+    status: "approved",
+    requestedAt: approvedAt,
+    approvedAt,
+  };
+}
+
+function chooseFixtureFlowerKind(seed: string): "coral" | "sunny" | "berry" | "sky" {
+  const flowerKinds = ["coral", "sunny", "berry", "sky"] as const;
+  let hash = 0;
+
+  for (const char of seed) {
+    hash = Math.imul(hash ^ char.charCodeAt(0), 0x45d9f3b);
+  }
+
+  return flowerKinds[Math.abs(hash) % flowerKinds.length]!;
 }
 
 export async function loadDomainState(db: Tx): Promise<DomainState> {

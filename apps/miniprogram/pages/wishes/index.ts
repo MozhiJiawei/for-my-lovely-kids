@@ -14,18 +14,9 @@ type WishListItem = {
   enough: boolean;
 };
 
-type RedemptionItem = {
-  id: string;
-  title: string;
-  flowerCost: number;
-  statusText: string;
-  timeText: string;
-};
-
 type WishesData = {
   availableFlowers: number;
   wishes: WishListItem[];
-  redemptions: RedemptionItem[];
   message: string;
   loading: boolean;
 };
@@ -39,7 +30,6 @@ const apiConfig = {
 const initialData: WishesData = {
   availableFlowers: 0,
   wishes: [],
-  redemptions: [],
   message: "把想实现的事先放进心愿篮。",
   loading: false,
 };
@@ -48,14 +38,6 @@ let latestRefreshRequest = 0;
 
 function kindText(kind: WishKind): string {
   return kind === "repeating" ? "可重复" : "一次性";
-}
-
-function formatTime(value: string | null): string {
-  if (!value) {
-    return "等待实现";
-  }
-
-  return value.slice(0, 10);
 }
 
 function activeWishes(state: PrototypeState): WishListItem[] {
@@ -73,21 +55,10 @@ function activeWishes(state: PrototypeState): WishListItem[] {
     }));
 }
 
-function redemptionHistory(state: PrototypeState): RedemptionItem[] {
-  return [...state.wishBook.redemptions].reverse().map((redemption) => ({
-    id: redemption.id,
-    title: redemption.titleSnapshot.replace(/^\[测试\]\s*/, ""),
-    flowerCost: redemption.flowerCostSnapshot,
-    statusText: redemption.status === "approved" ? "已实现" : "待批准",
-    timeText: formatTime(redemption.approvedAt ?? redemption.requestedAt),
-  }));
-}
-
 function deriveDataFromState(state: PrototypeState): Partial<WishesData> {
   return {
     availableFlowers: state.redFlowers.balance.available,
     wishes: activeWishes(state),
-    redemptions: redemptionHistory(state),
   };
 }
 

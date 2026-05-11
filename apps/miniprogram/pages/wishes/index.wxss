@@ -177,7 +177,6 @@ page {
 }
 
 .wish-card,
-.history-card,
 .empty {
   margin-top: 16rpx;
   border-radius: 24rpx;
@@ -208,16 +207,14 @@ page {
   background: #ef7567;
 }
 
-.wish-title,
-.history-title {
+.wish-title {
   color: #2f382d;
   font-size: 30rpx;
   font-weight: 900;
   line-height: 1.25;
 }
 
-.wish-meta,
-.history-meta {
+.wish-meta {
   margin-top: 8rpx;
   color: #6d7a66;
   font-size: 23rpx;
@@ -254,21 +251,6 @@ page {
 
 .redeem-disabled {
   background: #98ad8f;
-}
-
-.history-card {
-  display: grid;
-  grid-template-columns: 28rpx minmax(0, 1fr);
-  gap: 14rpx;
-  align-items: center;
-  padding: 18rpx 20rpx;
-}
-
-.history-dot {
-  width: 18rpx;
-  height: 18rpx;
-  border-radius: 50%;
-  background: #e24b45;
 }
 
 .empty {

@@ -16,6 +16,14 @@ const parentHeaders = {
   "x-parent-token": "parent-dev-token",
 };
 
+const fixtureHistory = {
+  availableFlowers: 56,
+  cumulativeFlowers: 76,
+  taskSubmissions: 33,
+  wishRedemptions: 3,
+  ledgerEntries: 36,
+};
+
 let tempDir: string;
 let prisma: PrismaClient | undefined;
 
@@ -25,6 +33,49 @@ function getPrisma(): PrismaClient {
   }
 
   return prisma;
+}
+
+async function resetFixture(app: ReturnType<typeof buildApp>) {
+  const response = await app.inject({
+    method: "POST",
+    url: "/__test/reset",
+  });
+
+  expect(response.statusCode).toBe(200);
+
+  return response.json();
+}
+
+async function createManagedTask(
+  app: ReturnType<typeof buildApp>,
+  payload: { title: string; flowerValue: number; kind: "repeating" | "one_time" },
+) {
+  const response = await app.inject({
+    method: "POST",
+    url: "/api/parent/tasks",
+    headers: parentHeaders,
+    payload,
+  });
+
+  expect(response.statusCode).toBe(200);
+
+  return response.json().task.id as string;
+}
+
+async function createManagedWish(
+  app: ReturnType<typeof buildApp>,
+  payload: { title: string; flowerCost: number; kind?: "repeating" | "one_time"; pinned?: boolean },
+) {
+  const response = await app.inject({
+    method: "POST",
+    url: "/api/parent/wishes",
+    headers: parentHeaders,
+    payload,
+  });
+
+  expect(response.statusCode).toBe(200);
+
+  return response.json().wish.id as string;
 }
 
 beforeEach(() => {
@@ -545,14 +596,26 @@ describe("red flower API flow", () => {
       },
     });
 
-    const reset = await app.inject({
-      method: "POST",
-      url: "/__test/reset",
-    });
+    const reset = await resetFixture(app);
 
-    expect(reset.statusCode).toBe(200);
-    expect(reset.json()).toMatchObject({
+    expect(reset).toMatchObject({
+      redFlowers: {
+        balance: {
+          available: fixtureHistory.availableFlowers,
+          cumulative: fixtureHistory.cumulativeFlowers,
+        },
+      },
       taskBook: {
+        submissions: expect.arrayContaining([
+          expect.objectContaining({
+            taskId: "test-task-brush-teeth",
+            status: "confirmed",
+          }),
+          expect.objectContaining({
+            taskId: "test-task-say-thanks",
+            status: "confirmed",
+          }),
+        ]),
         tasks: expect.arrayContaining([
           expect.objectContaining({
             id: "test-task-brush-teeth",
@@ -564,11 +627,148 @@ describe("red flower API flow", () => {
         wishes: expect.arrayContaining([
           expect.objectContaining({
             id: "test-wish-carousel",
+            status: "archived",
+          }),
+          expect.objectContaining({
+            id: "test-wish-picture-book",
+            status: "archived",
+          }),
+          expect.objectContaining({
+            id: "test-wish-ice-cream",
             status: "test",
+          }),
+        ]),
+        redemptions: expect.arrayContaining([
+          expect.objectContaining({
+            wishId: "test-wish-carousel",
+            status: "approved",
           }),
         ]),
       },
     });
+
+    await app.close();
+  });
+
+  it("seeds consistent May history for statistics after explicit fixture reset", async () => {
+    const app = buildApp({ prisma: getPrisma() });
+    await app.ready();
+
+    const state = await resetFixture(app);
+
+    expect(state.redFlowers.balance).toMatchObject({
+      available: fixtureHistory.availableFlowers,
+      cumulative: fixtureHistory.cumulativeFlowers,
+    });
+    expect(state.taskBook.submissions).toHaveLength(fixtureHistory.taskSubmissions);
+    expect(state.wishBook.redemptions).toHaveLength(fixtureHistory.wishRedemptions);
+    expect(state.redFlowers.ledger).toHaveLength(fixtureHistory.ledgerEntries);
+    expect(state.taskBook.submissions).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          taskId: "test-task-brush-teeth",
+          confirmedAt: expect.stringContaining("2026-05-11"),
+          flowerValueSnapshot: 2,
+        }),
+        expect.objectContaining({
+          taskId: "test-task-drink-water",
+          confirmedAt: expect.stringContaining("2026-05-11"),
+          flowerValueSnapshot: 1,
+        }),
+        expect.objectContaining({
+          taskId: "test-task-say-thanks",
+          confirmedAt: expect.stringContaining("2026-05-11"),
+          flowerValueSnapshot: 1,
+        }),
+        expect.objectContaining({
+          taskId: "test-task-toys",
+          confirmedAt: expect.stringContaining("2026-05-03"),
+          flowerValueSnapshot: 3,
+        }),
+        expect.objectContaining({
+          taskId: "test-task-write-name",
+          confirmedAt: expect.stringContaining("2026-05-08"),
+          flowerValueSnapshot: 6,
+        }),
+        expect.objectContaining({
+          taskId: "test-task-ride-bike",
+          confirmedAt: expect.stringContaining("2026-05-09"),
+          flowerValueSnapshot: 8,
+        }),
+        expect.objectContaining({
+          taskId: "test-task-count-twenty",
+          confirmedAt: expect.stringContaining("2026-05-10"),
+          flowerValueSnapshot: 4,
+        }),
+      ]),
+    );
+    expect(state.wishBook.redemptions).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          wishId: "test-wish-carousel",
+          approvedAt: expect.stringContaining("2026-05-06"),
+          flowerCostSnapshot: 10,
+        }),
+        expect.objectContaining({
+          wishId: "test-wish-picture-book",
+          approvedAt: expect.stringContaining("2026-05-10"),
+          flowerCostSnapshot: 6,
+        }),
+      ]),
+    );
+    expect(state.taskBook.tasks).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: "test-task-toys",
+          kind: "one_time",
+          status: "archived",
+        }),
+        expect.objectContaining({
+          id: "test-task-write-name",
+          kind: "one_time",
+          status: "archived",
+        }),
+        expect.objectContaining({
+          id: "test-task-ride-bike",
+          kind: "one_time",
+          status: "archived",
+        }),
+        expect.objectContaining({
+          id: "test-task-count-twenty",
+          kind: "one_time",
+          status: "archived",
+        }),
+        expect.objectContaining({
+          id: "test-task-tie-shoes",
+          kind: "one_time",
+          status: "test",
+        }),
+      ]),
+    );
+    expect(state.wishBook.wishes).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: "test-wish-carousel",
+          status: "archived",
+          pinned: false,
+        }),
+        expect.objectContaining({
+          id: "test-wish-picture-book",
+          status: "archived",
+        }),
+        expect.objectContaining({
+          id: "test-wish-ice-cream",
+          kind: "repeating",
+          status: "test",
+        }),
+      ]),
+    );
+
+    await expect(getPrisma().taskSubmission.count()).resolves.toBe(fixtureHistory.taskSubmissions);
+    await expect(getPrisma().wishRedemption.count()).resolves.toBe(fixtureHistory.wishRedemptions);
+    await expect(getPrisma().redFlowerLedgerEntry.count()).resolves.toBe(
+      fixtureHistory.ledgerEntries,
+    );
 
     await app.close();
   });
@@ -644,37 +844,42 @@ describe("red flower API flow", () => {
       method: "POST",
       url: "/__test/reset",
     });
+    const taskId = await createManagedTask(app, {
+      title: "今天自己穿衣服",
+      flowerValue: 2,
+      kind: "repeating",
+    });
 
     const submitted = await app.inject({
       method: "POST",
       url: "/api/child/task-submissions",
       headers: familyHeaders,
       payload: {
-        taskId: "test-task-brush-teeth",
+        taskId,
       },
     });
 
     expect(submitted.statusCode).toBe(200);
     expect(submitted.json()).toMatchObject({
       submission: {
-        taskId: "test-task-brush-teeth",
+        taskId,
         status: "confirmed",
         flowerValueSnapshot: 2,
       },
       state: {
         redFlowers: {
           balance: {
-            available: 2,
-            cumulative: 2,
+            available: fixtureHistory.availableFlowers + 2,
+            cumulative: fixtureHistory.cumulativeFlowers + 2,
           },
-          ledger: [
-            {
+          ledger: expect.arrayContaining([
+            expect.objectContaining({
               type: "task_confirmed",
               deltaAvailable: 2,
               deltaCumulative: 2,
               flowerKind: expect.stringMatching(/^(coral|sunny|berry|sky)$/),
-            },
-          ],
+            }),
+          ]),
         },
       },
     });
@@ -693,11 +898,11 @@ describe("red flower API flow", () => {
 
     expect(savedSubmission.status).toBe("confirmed");
     expect(savedSubmission.flowerValueSnapshot).toBe(2);
-    expect(savedSubmission.completionKey).toMatch(/^repeating:test-task-brush-teeth:/);
-    expect(savedBalance.available).toBe(2);
-    expect(savedBalance.cumulative).toBe(2);
-    expect(savedLedger).toHaveLength(1);
-    expect(savedLedger[0]).toMatchObject({
+    expect(savedSubmission.completionKey).toMatch(new RegExp(`^repeating:${taskId}:`));
+    expect(savedBalance.available).toBe(fixtureHistory.availableFlowers + 2);
+    expect(savedBalance.cumulative).toBe(fixtureHistory.cumulativeFlowers + 2);
+    expect(savedLedger).toHaveLength(fixtureHistory.ledgerEntries + 1);
+    expect(savedLedger.find((entry) => entry.sourceId === submissionId)).toMatchObject({
       type: "task_confirmed",
       deltaAvailable: 2,
       deltaCumulative: 2,
@@ -716,13 +921,18 @@ describe("red flower API flow", () => {
       method: "POST",
       url: "/__test/reset",
     });
+    const taskId = await createManagedTask(app, {
+      title: "今天整理水杯",
+      flowerValue: 2,
+      kind: "repeating",
+    });
 
     const first = await app.inject({
       method: "POST",
       url: "/api/child/task-submissions",
       headers: familyHeaders,
       payload: {
-        taskId: "test-task-brush-teeth",
+        taskId,
       },
     });
     const duplicate = await app.inject({
@@ -730,7 +940,7 @@ describe("red flower API flow", () => {
       url: "/api/child/task-submissions",
       headers: familyHeaders,
       payload: {
-        taskId: "test-task-brush-teeth",
+        taskId,
       },
     });
 
@@ -745,14 +955,18 @@ describe("red flower API flow", () => {
 
     await expect(
       getPrisma().task.findUniqueOrThrow({
-        where: { id: "test-task-brush-teeth" },
+        where: { id: taskId },
       }),
     ).resolves.toMatchObject({
       kind: "repeating",
-      status: "test",
+      status: "active",
     });
-    await expect(getPrisma().taskSubmission.count()).resolves.toBe(1);
-    await expect(getPrisma().redFlowerLedgerEntry.count()).resolves.toBe(1);
+    await expect(getPrisma().taskSubmission.count()).resolves.toBe(
+      fixtureHistory.taskSubmissions + 1,
+    );
+    await expect(getPrisma().redFlowerLedgerEntry.count()).resolves.toBe(
+      fixtureHistory.ledgerEntries + 1,
+    );
 
     await app.close();
   });
@@ -876,12 +1090,17 @@ describe("red flower API flow", () => {
       method: "POST",
       url: "/__test/reset",
     });
+    const taskId = await createManagedTask(app, {
+      title: "等待家长确认的习惯",
+      flowerValue: 2,
+      kind: "repeating",
+    });
 
     await getPrisma().taskSubmission.create({
       data: {
         id: "pending-parent-confirmation",
-        taskId: "test-task-brush-teeth",
-        titleSnapshot: "[测试] 认真刷牙",
+        taskId,
+        titleSnapshot: "等待家长确认的习惯",
         flowerValueSnapshot: 2,
         status: "pending",
         submittedAt: new Date("2026-05-11T01:00:00.000Z"),
@@ -901,8 +1120,8 @@ describe("red flower API flow", () => {
     expect(confirmed.json()).toMatchObject({
       redFlowers: {
         balance: {
-          available: 2,
-          cumulative: 2,
+          available: fixtureHistory.availableFlowers + 2,
+          cumulative: fixtureHistory.cumulativeFlowers + 2,
         },
       },
     });
@@ -912,7 +1131,7 @@ describe("red flower API flow", () => {
       }),
     ).resolves.toMatchObject({
       status: "confirmed",
-      completionKey: expect.stringMatching(/^repeating:test-task-brush-teeth:/),
+      completionKey: expect.stringMatching(new RegExp(`^repeating:${taskId}:`)),
     });
     await expect(
       getPrisma().redFlowerLedgerEntry.findFirstOrThrow({
@@ -934,21 +1153,26 @@ describe("red flower API flow", () => {
       method: "POST",
       url: "/__test/reset",
     });
+    const taskId = await createManagedTask(app, {
+      title: "重复待确认习惯",
+      flowerValue: 2,
+      kind: "repeating",
+    });
 
     await getPrisma().taskSubmission.createMany({
       data: [
         {
           id: "pending-parent-confirmation-1",
-          taskId: "test-task-brush-teeth",
-          titleSnapshot: "[测试] 认真刷牙",
+          taskId,
+          titleSnapshot: "重复待确认习惯",
           flowerValueSnapshot: 2,
           status: "pending",
           submittedAt: new Date("2026-05-11T01:00:00.000Z"),
         },
         {
           id: "pending-parent-confirmation-2",
-          taskId: "test-task-brush-teeth",
-          titleSnapshot: "[测试] 认真刷牙",
+          taskId,
+          titleSnapshot: "重复待确认习惯",
           flowerValueSnapshot: 2,
           status: "pending",
           submittedAt: new Date("2026-05-11T02:00:00.000Z"),
@@ -981,7 +1205,9 @@ describe("red flower API flow", () => {
         message: "Task has already been completed for this day.",
       },
     });
-    await expect(getPrisma().redFlowerLedgerEntry.count()).resolves.toBe(1);
+    await expect(getPrisma().redFlowerLedgerEntry.count()).resolves.toBe(
+      fixtureHistory.ledgerEntries + 1,
+    );
 
     await app.close();
   });
@@ -994,39 +1220,33 @@ describe("red flower API flow", () => {
       method: "POST",
       url: "/__test/reset",
     });
-
-    for (const taskId of ["test-task-brush-teeth", "test-task-reading", "test-task-tie-shoes"]) {
-      const response = await app.inject({
-        method: "POST",
-        url: "/api/child/task-submissions",
-        headers: familyHeaders,
-        payload: { taskId },
-      });
-
-      expect(response.statusCode).toBe(200);
-    }
+    const wishId = await createManagedWish(app, {
+      title: "去儿童乐园",
+      flowerCost: 10,
+      kind: "one_time",
+    });
 
     const requested = await app.inject({
       method: "POST",
       url: "/api/child/wish-redemptions",
       headers: familyHeaders,
       payload: {
-        wishId: "test-wish-carousel",
+        wishId,
       },
     });
 
     expect(requested.statusCode).toBe(200);
     expect(requested.json()).toMatchObject({
       redemption: {
-        wishId: "test-wish-carousel",
+        wishId,
         status: "pending",
         flowerCostSnapshot: 10,
       },
       state: {
         redFlowers: {
           balance: {
-            available: 11,
-            cumulative: 11,
+            available: fixtureHistory.availableFlowers,
+            cumulative: fixtureHistory.cumulativeFlowers,
           },
         },
       },
@@ -1049,8 +1269,8 @@ describe("red flower API flow", () => {
       state: {
         redFlowers: {
           balance: {
-            available: 1,
-            cumulative: 11,
+            available: fixtureHistory.availableFlowers - 10,
+            cumulative: fixtureHistory.cumulativeFlowers,
           },
         },
         garden: {
@@ -1059,7 +1279,7 @@ describe("red flower API flow", () => {
         wishBook: {
           wishes: expect.arrayContaining([
             expect.objectContaining({
-              id: "test-wish-carousel",
+              id: wishId,
               kind: "one_time",
               pinned: false,
               status: "archived",
@@ -1084,8 +1304,8 @@ describe("red flower API flow", () => {
 
     expect(savedRedemption.status).toBe("approved");
     expect(savedRedemption.flowerCostSnapshot).toBe(10);
-    expect(savedBalance.available).toBe(1);
-    expect(savedBalance.cumulative).toBe(11);
+    expect(savedBalance.available).toBe(fixtureHistory.availableFlowers - 10);
+    expect(savedBalance.cumulative).toBe(fixtureHistory.cumulativeFlowers);
     expect(savedDecorations).toHaveLength(0);
     expect(savedWishLedger).toEqual([
       expect.objectContaining({
@@ -1107,39 +1327,33 @@ describe("red flower API flow", () => {
       method: "POST",
       url: "/__test/reset",
     });
-
-    for (const taskId of ["test-task-brush-teeth", "test-task-reading", "test-task-tie-shoes"]) {
-      const response = await app.inject({
-        method: "POST",
-        url: "/api/child/task-submissions",
-        headers: familyHeaders,
-        payload: { taskId },
-      });
-
-      expect(response.statusCode).toBe(200);
-    }
+    const wishId = await createManagedWish(app, {
+      title: "买一个风筝",
+      flowerCost: 10,
+      kind: "one_time",
+    });
 
     const redeemed = await app.inject({
       method: "POST",
       url: "/api/child/wish-redemptions/redeem",
       headers: familyHeaders,
       payload: {
-        wishId: "test-wish-carousel",
+        wishId,
       },
     });
 
     expect(redeemed.statusCode).toBe(200);
     expect(redeemed.json()).toMatchObject({
       redemption: {
-        wishId: "test-wish-carousel",
+        wishId,
         status: "approved",
         flowerCostSnapshot: 10,
       },
       state: {
         redFlowers: {
           balance: {
-            available: 1,
-            cumulative: 11,
+            available: fixtureHistory.availableFlowers - 10,
+            cumulative: fixtureHistory.cumulativeFlowers,
           },
         },
         garden: {
@@ -1158,7 +1372,7 @@ describe("red flower API flow", () => {
           (sum: number, entry: { deltaCumulative: number }) => sum + entry.deltaCumulative,
           0,
         ),
-    ).toBe(11);
+    ).toBe(fixtureHistory.cumulativeFlowers);
 
     const redemptionId = redeemed.json().redemption.id as string;
 
@@ -1172,7 +1386,7 @@ describe("red flower API flow", () => {
     });
     await expect(
       getPrisma().wish.findUniqueOrThrow({
-        where: { id: "test-wish-carousel" },
+        where: { id: wishId },
       }),
     ).resolves.toMatchObject({
       kind: "one_time",
@@ -1196,29 +1410,18 @@ describe("red flower API flow", () => {
       method: "POST",
       url: "/__test/reset",
     });
-
-    for (const taskId of [
-      "test-task-brush-teeth",
-      "test-task-reading",
-      "test-task-tie-shoes",
-      "test-task-write-name",
-    ]) {
-      const response = await app.inject({
-        method: "POST",
-        url: "/api/child/task-submissions",
-        headers: familyHeaders,
-        payload: { taskId },
-      });
-
-      expect(response.statusCode).toBe(200);
-    }
+    const wishId = await createManagedWish(app, {
+      title: "周末吃一次酸奶",
+      flowerCost: 4,
+      kind: "repeating",
+    });
 
     const first = await app.inject({
       method: "POST",
       url: "/api/child/wish-redemptions/redeem",
       headers: familyHeaders,
       payload: {
-        wishId: "test-wish-ice-cream",
+        wishId,
       },
     });
     const second = await app.inject({
@@ -1226,7 +1429,7 @@ describe("red flower API flow", () => {
       url: "/api/child/wish-redemptions/redeem",
       headers: familyHeaders,
       payload: {
-        wishId: "test-wish-ice-cream",
+        wishId,
       },
     });
 
@@ -1236,21 +1439,21 @@ describe("red flower API flow", () => {
       state: {
         redFlowers: {
           balance: {
-            available: 9,
-            cumulative: 17,
+            available: fixtureHistory.availableFlowers - 8,
+            cumulative: fixtureHistory.cumulativeFlowers,
           },
         },
         wishBook: {
           wishes: expect.arrayContaining([
             expect.objectContaining({
-              id: "test-wish-ice-cream",
+              id: wishId,
               kind: "repeating",
-              status: "test",
+              status: "active",
             }),
           ]),
           redemptions: expect.arrayContaining([
             expect.objectContaining({
-              wishId: "test-wish-ice-cream",
+              wishId,
               status: "approved",
               flowerCostSnapshot: 4,
             }),
@@ -1261,16 +1464,16 @@ describe("red flower API flow", () => {
 
     await expect(
       getPrisma().wish.findUniqueOrThrow({
-        where: { id: "test-wish-ice-cream" },
+        where: { id: wishId },
       }),
     ).resolves.toMatchObject({
       kind: "repeating",
-      status: "test",
+      status: "active",
     });
     await expect(
       getPrisma().wishRedemption.count({
         where: {
-          wishId: "test-wish-ice-cream",
+          wishId,
           status: "approved",
         },
       }),
@@ -1280,8 +1483,8 @@ describe("red flower API flow", () => {
         where: { id: "default-red-flower-balance" },
       }),
     ).resolves.toMatchObject({
-      available: 9,
-      cumulative: 17,
+      available: fixtureHistory.availableFlowers - 8,
+      cumulative: fixtureHistory.cumulativeFlowers,
     });
 
     await app.close();
@@ -1295,13 +1498,18 @@ describe("red flower API flow", () => {
       method: "POST",
       url: "/__test/reset",
     });
+    const wishId = await createManagedWish(app, {
+      title: "一次性小火车",
+      flowerCost: 10,
+      kind: "one_time",
+    });
 
     const first = await app.inject({
       method: "POST",
       url: "/api/child/wish-redemptions",
       headers: familyHeaders,
       payload: {
-        wishId: "test-wish-carousel",
+        wishId,
       },
     });
     const duplicate = await app.inject({
@@ -1309,7 +1517,7 @@ describe("red flower API flow", () => {
       url: "/api/child/wish-redemptions",
       headers: familyHeaders,
       payload: {
-        wishId: "test-wish-carousel",
+        wishId,
       },
     });
 
@@ -1323,7 +1531,7 @@ describe("red flower API flow", () => {
     });
     await expect(
       getPrisma().wishRedemption.count({
-        where: { wishId: "test-wish-carousel" },
+        where: { wishId },
       }),
     ).resolves.toBe(1);
 
@@ -1338,28 +1546,6 @@ describe("red flower API flow", () => {
       method: "POST",
       url: "/__test/reset",
     });
-
-    for (const taskId of ["test-task-brush-teeth", "test-task-reading", "test-task-tie-shoes"]) {
-      const response = await app.inject({
-        method: "POST",
-        url: "/api/child/task-submissions",
-        headers: familyHeaders,
-        payload: { taskId },
-      });
-
-      expect(response.statusCode).toBe(200);
-    }
-
-    const redeemed = await app.inject({
-      method: "POST",
-      url: "/api/child/wish-redemptions/redeem",
-      headers: familyHeaders,
-      payload: {
-        wishId: "test-wish-carousel",
-      },
-    });
-
-    expect(redeemed.statusCode).toBe(200);
     await app.close();
 
     const restarted = buildApp({ prisma: getPrisma() });
@@ -1404,13 +1590,18 @@ describe("red flower API flow", () => {
       method: "POST",
       url: "/__test/reset",
     });
+    const wishId = await createManagedWish(app, {
+      title: "很贵的乐高",
+      flowerCost: 999,
+      kind: "one_time",
+    });
 
     const redeemed = await app.inject({
       method: "POST",
       url: "/api/child/wish-redemptions/redeem",
       headers: familyHeaders,
       payload: {
-        wishId: "test-wish-carousel",
+        wishId,
       },
     });
 
@@ -1422,16 +1613,18 @@ describe("red flower API flow", () => {
       },
     });
 
-    await expect(getPrisma().wishRedemption.count()).resolves.toBe(0);
-    await expect(getPrisma().redFlowerLedgerEntry.count()).resolves.toBe(0);
+    await expect(getPrisma().wishRedemption.count()).resolves.toBe(fixtureHistory.wishRedemptions);
+    await expect(getPrisma().redFlowerLedgerEntry.count()).resolves.toBe(
+      fixtureHistory.ledgerEntries,
+    );
     await expect(getPrisma().memorialDecoration.count()).resolves.toBe(0);
     await expect(
       getPrisma().redFlowerBalance.findUniqueOrThrow({
         where: { id: "default-red-flower-balance" },
       }),
     ).resolves.toMatchObject({
-      available: 0,
-      cumulative: 0,
+      available: fixtureHistory.availableFlowers,
+      cumulative: fixtureHistory.cumulativeFlowers,
     });
 
     await app.close();
@@ -1445,6 +1638,11 @@ describe("red flower API flow", () => {
       method: "POST",
       url: "/__test/reset",
     });
+    const beforeCounts = {
+      taskSubmissions: await getPrisma().taskSubmission.count(),
+      wishRedemptions: await getPrisma().wishRedemption.count(),
+      ledgerEntries: await getPrisma().redFlowerLedgerEntry.count(),
+    };
 
     const taskSubmission = await app.inject({
       method: "POST",
@@ -1496,9 +1694,11 @@ describe("red flower API flow", () => {
       },
     });
 
-    await expect(getPrisma().taskSubmission.count()).resolves.toBe(0);
-    await expect(getPrisma().wishRedemption.count()).resolves.toBe(0);
-    await expect(getPrisma().redFlowerLedgerEntry.count()).resolves.toBe(0);
+    await expect(getPrisma().taskSubmission.count()).resolves.toBe(beforeCounts.taskSubmissions);
+    await expect(getPrisma().wishRedemption.count()).resolves.toBe(beforeCounts.wishRedemptions);
+    await expect(getPrisma().redFlowerLedgerEntry.count()).resolves.toBe(
+      beforeCounts.ledgerEntries,
+    );
 
     await app.close();
   });
@@ -1554,13 +1754,13 @@ describe("red flower API flow", () => {
     expect(response.json()).toMatchObject({
       redFlowers: {
         balance: {
-          available: 0,
-          cumulative: 0,
+          available: fixtureHistory.availableFlowers,
+          cumulative: fixtureHistory.cumulativeFlowers,
         },
-        ledger: [],
+        ledger: expect.any(Array),
       },
       taskBook: {
-        submissions: [],
+        submissions: expect.any(Array),
         tasks: expect.arrayContaining([
           expect.objectContaining({
             id: "test-task-brush-teeth",
@@ -1569,8 +1769,12 @@ describe("red flower API flow", () => {
         ]),
       },
     });
-    await expect(getPrisma().taskSubmission.count()).resolves.toBe(0);
-    await expect(getPrisma().redFlowerLedgerEntry.count()).resolves.toBe(0);
+    expect(response.json().redFlowers.ledger).toHaveLength(fixtureHistory.ledgerEntries);
+    expect(response.json().taskBook.submissions).toHaveLength(fixtureHistory.taskSubmissions);
+    await expect(getPrisma().taskSubmission.count()).resolves.toBe(fixtureHistory.taskSubmissions);
+    await expect(getPrisma().redFlowerLedgerEntry.count()).resolves.toBe(
+      fixtureHistory.ledgerEntries,
+    );
 
     await app.close();
   });

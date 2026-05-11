@@ -15,6 +15,7 @@ type TaskPreview = {
   title: string;
   flowerValue: number;
   kind: "repeating" | "one_time";
+  status: "active" | "test" | "archived";
   state: TaskState;
   actionText: string;
   stateText: string;
@@ -116,7 +117,11 @@ function flowerSlotsFromState(state: PrototypeState): FlowerSlot[] {
   const flowers: FlowerSlot[] = [];
 
   for (const entry of state.redFlowers.ledger) {
-    if (entry.type !== "task_confirmed" || entry.deltaCumulative <= 0) {
+    if (
+      entry.type !== "task_confirmed" ||
+      entry.deltaCumulative <= 0 ||
+      getBusinessDayKey(entry.occurredAt) !== todayKey()
+    ) {
       continue;
     }
 
@@ -137,8 +142,8 @@ function flowerSlotsFromState(state: PrototypeState): FlowerSlot[] {
   return flowers;
 }
 
-function flowerSlotsFromCumulative(cumulativeRedFlowers: number): FlowerSlot[] {
-  const count = Math.min(Math.max(cumulativeRedFlowers, 0), maxVisibleFlowers);
+function flowerSlotsFromTodayFlowers(todayFlowers: number): FlowerSlot[] {
+  const count = Math.min(Math.max(todayFlowers, 0), maxVisibleFlowers);
 
   return Array.from({ length: count }, (_, slot) => ({
     slot,
@@ -176,6 +181,7 @@ function deriveTasks(state: PrototypeState): TaskPreview[] {
         title: task.title.replace(/^\[测试\]\s*/, ""),
         flowerValue: task.flowerValue,
         kind: task.kind,
+        status: task.status,
         state: taskState,
         completedAt: confirmedSubmission?.confirmedAt ?? null,
         ...taskCopy(taskState),
@@ -193,14 +199,18 @@ function taskTabs(activeTaskTab: TaskTabId): GardenDesignData["taskTabs"] {
 
 function visibleTasks(tasks: TaskPreview[], activeTaskTab: TaskTabId): TaskPreview[] {
   if (activeTaskTab === "habits") {
-    return tasks.filter((task) => task.kind === "repeating");
+    return tasks.filter(
+      (task) => task.kind === "repeating" && (task.status === "active" || task.status === "test"),
+    );
   }
 
   if (activeTaskTab === "activeGoals") {
-    return tasks.filter((task) => task.kind === "one_time" && task.state === "ready");
+    return tasks.filter(
+      (task) => task.kind === "one_time" && (task.status === "active" || task.status === "test"),
+    );
   }
 
-  return tasks.filter((task) => task.kind === "one_time" && task.state === "done");
+  return tasks.filter((task) => task.kind === "one_time" && task.status === "archived");
 }
 
 function deriveWishes(state: PrototypeState): WishPreview[] {
@@ -249,6 +259,7 @@ function deriveDataFromState(
 ): Partial<GardenDesignData> {
   const cumulativeFlowers = state.redFlowers.balance.cumulative;
   const availableFlowers = state.redFlowers.balance.available;
+  const todayFlowers = todayEarnedFlowers(state);
   const tasks = deriveTasks(state);
   const wishes = deriveWishes(state);
 
@@ -257,16 +268,16 @@ function deriveDataFromState(
     visibleTasks: visibleTasks(tasks, activeTaskTab),
     taskTabs: taskTabs(activeTaskTab),
     wishes,
-    todayFlowers: todayEarnedFlowers(state),
+    todayFlowers,
     availableFlowers,
     cumulativeFlowers,
     flowerSlots:
       state.redFlowers.ledger.length > 0
         ? flowerSlotsFromState(state)
-        : flowerSlotsFromCumulative(cumulativeFlowers),
+        : flowerSlotsFromTodayFlowers(todayFlowers),
     dailyLine:
-      cumulativeFlowers > 0
-        ? `花园已经开出 ${Math.min(cumulativeFlowers, maxVisibleFlowers)} 朵花啦。`
+      todayFlowers > 0
+        ? `今天已经开出 ${Math.min(todayFlowers, maxVisibleFlowers)} 朵花啦。`
         : "今天也一起把小花园照亮吧。",
   };
 }
@@ -378,13 +389,13 @@ Page({
 
     try {
       const response = await submitTask(apiConfig, taskId);
-      const todayFlowers = response.state.redFlowers.balance.available;
+      const todayFlowers = todayEarnedFlowers(response.state);
       const activeTaskTab = this.data.activeTaskTab;
 
       this.setData({
         activeTaskTab,
         ...deriveDataFromState(response.state, activeTaskTab),
-        dailyLine: `开花啦！现在有 ${todayFlowers} 朵小红花。`,
+        dailyLine: `开花啦！今天已经开出 ${Math.min(todayFlowers, maxVisibleFlowers)} 朵花。`,
       });
     } catch (error) {
       this.setData({

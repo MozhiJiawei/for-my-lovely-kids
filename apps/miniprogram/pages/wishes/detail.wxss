@@ -120,23 +120,10 @@ page {
 }
 
 .balance-line,
-.empty,
-.history-meta {
+.empty {
   margin-top: 12rpx;
   color: #6d7a66;
   font-size: 25rpx;
   font-weight: 700;
   line-height: 1.45;
-}
-
-.history-item {
-  margin-top: 14rpx;
-  padding-top: 14rpx;
-  border-top: 1rpx solid #edf2e8;
-}
-
-.history-title {
-  color: #2f382d;
-  font-size: 28rpx;
-  font-weight: 900;
 }
