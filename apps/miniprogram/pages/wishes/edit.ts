@@ -5,7 +5,7 @@ import {
   type PrototypeState,
   type WishState,
 } from "../../src/api/client";
-import { getDefaultApiBaseUrl, prototypeApiTokens } from "../../src/config/api";
+import { getPrototypeApiConfig } from "../../src/config/api";
 
 type WishKind = "repeating" | "one_time";
 
@@ -18,12 +18,6 @@ type WishEditData = {
   modeText: string;
   message: string;
   loading: boolean;
-};
-
-const apiConfig = {
-  baseUrl: getDefaultApiBaseUrl(),
-  familyToken: prototypeApiTokens.familyToken,
-  parentToken: prototypeApiTokens.parentToken,
 };
 
 const initialData: WishEditData = {
@@ -81,7 +75,7 @@ Page({
     });
 
     try {
-      const state = await loadState(apiConfig);
+      const state = await loadState(getPrototypeApiConfig());
 
       if (requestId !== latestLoadRequest) {
         return;
@@ -200,9 +194,9 @@ Page({
       };
 
       if (this.data.wishId) {
-        await updateWish(apiConfig, this.data.wishId, input);
+        await updateWish(getPrototypeApiConfig(), this.data.wishId, input);
       } else {
-        await createWish(apiConfig, input);
+        await createWish(getPrototypeApiConfig(), input);
       }
 
       this.setData({

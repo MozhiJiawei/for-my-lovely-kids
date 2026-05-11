@@ -1,5 +1,5 @@
 import { deleteTask, loadState, type PrototypeState } from "../../src/api/client";
-import { getDefaultApiBaseUrl, prototypeApiTokens } from "../../src/config/api";
+import { getPrototypeApiConfig } from "../../src/config/api";
 
 type TaskKind = "repeating" | "one_time";
 
@@ -20,12 +20,6 @@ type TasksData = {
   goals: TaskListItem[];
   message: string;
   loading: boolean;
-};
-
-const apiConfig = {
-  baseUrl: getDefaultApiBaseUrl(),
-  familyToken: prototypeApiTokens.familyToken,
-  parentToken: prototypeApiTokens.parentToken,
 };
 
 const initialData: TasksData = {
@@ -118,7 +112,7 @@ Page({
     });
 
     try {
-      const state = await loadState(apiConfig);
+      const state = await loadState(getPrototypeApiConfig());
 
       if (requestId !== latestRefreshRequest) {
         return;
@@ -240,7 +234,7 @@ Page({
     });
 
     try {
-      const response = await deleteTask(apiConfig, taskId);
+      const response = await deleteTask(getPrototypeApiConfig(), taskId);
 
       this.setData({
         ...deriveDataFromState(response.state, []),

@@ -1,11 +1,16 @@
 export type ApiBackendKey = "local" | "public";
 
-export const apiBackendProfiles: Array<{
+export type ApiBackendProfile = {
   key: ApiBackendKey;
   label: string;
   description: string;
   baseUrl: string;
-}> = [
+};
+
+const apiBackendKeyStorageKey = "redFlowerGarden.apiBackendKey";
+const apiBaseUrlStorageKey = "redFlowerGarden.apiBaseUrl";
+
+export const apiBackendProfiles: ApiBackendProfile[] = [
   {
     key: "public",
     label: "公网服务器",
@@ -25,14 +30,59 @@ export const prototypeApiTokens = {
   parentToken: "red-flower-parent-test-2026",
 };
 
+export type PrototypeApiConfig = {
+  baseUrl: string;
+  familyToken: string;
+  parentToken: string;
+};
+
 export function getDefaultApiBaseUrl(): string {
-  return getApiBaseUrl("public");
+  return getConfiguredApiBaseUrl();
 }
 
 export function getApiBaseUrl(key: ApiBackendKey): string {
   return (
-    apiBackendProfiles.find((profile) => profile.key === key)?.baseUrl ?? getDefaultApiBaseUrl()
+    apiBackendProfiles.find((profile) => profile.key === key)?.baseUrl ??
+    apiBackendProfiles.find((profile) => profile.key === "public")!.baseUrl
   );
+}
+
+export function getConfiguredApiBackendKey(): ApiBackendKey {
+  const savedBackendKey = readStorageString(apiBackendKeyStorageKey);
+
+  return isApiBackendKey(savedBackendKey) ? savedBackendKey : "public";
+}
+
+export function getConfiguredApiBaseUrl(): string {
+  return (
+    readStorageString(apiBaseUrlStorageKey)?.trim() || getApiBaseUrl(getConfiguredApiBackendKey())
+  );
+}
+
+export function getPrototypeApiConfig(): PrototypeApiConfig {
+  return {
+    baseUrl: getConfiguredApiBaseUrl(),
+    familyToken: prototypeApiTokens.familyToken,
+    parentToken: prototypeApiTokens.parentToken,
+  };
+}
+
+export function saveConfiguredApiBackend(key: ApiBackendKey, baseUrl = getApiBaseUrl(key)): void {
+  writeStorageString(apiBackendKeyStorageKey, key);
+  writeStorageString(apiBaseUrlStorageKey, baseUrl.trim() || getApiBaseUrl(key));
+}
+
+export function inferApiBackendKey(baseUrl: string): ApiBackendKey {
+  const normalized = normalizeApiBaseUrl(baseUrl);
+  const profile = apiBackendProfiles.find(
+    (candidate) => normalizeApiBaseUrl(candidate.baseUrl) === normalized,
+  );
+
+  if (profile) {
+    return profile.key;
+  }
+
+  return isLocalApiBaseUrl(baseUrl) ? "local" : "public";
 }
 
 export function isLocalApiBaseUrl(baseUrl: string): boolean {
@@ -52,5 +102,39 @@ export function isPrototypeToolsVisible(): boolean {
     return wx.getAccountInfoSync().miniProgram.envVersion !== "release";
   } catch {
     return true;
+  }
+}
+
+function isApiBackendKey(value: string | undefined): value is ApiBackendKey {
+  return value === "local" || value === "public";
+}
+
+function normalizeApiBaseUrl(baseUrl: string): string {
+  return baseUrl.trim().replace(/\/+$/, "").toLowerCase();
+}
+
+function readStorageString(key: string): string | undefined {
+  try {
+    if (typeof wx === "undefined") {
+      return undefined;
+    }
+
+    const value = wx.getStorageSync(key) as unknown;
+
+    return typeof value === "string" ? value : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function writeStorageString(key: string, value: string): void {
+  try {
+    if (typeof wx === "undefined") {
+      return;
+    }
+
+    wx.setStorageSync(key, value);
+  } catch {
+    // Local storage is a convenience for developer switching; requests can still use in-memory data.
   }
 }

@@ -1,9 +1,5 @@
 import { loadState, resetTestData, submitTask, type PrototypeState } from "../../src/api/client";
-import {
-  getDefaultApiBaseUrl,
-  isPrototypeToolsVisible,
-  prototypeApiTokens,
-} from "../../src/config/api";
+import { getPrototypeApiConfig, isPrototypeToolsVisible } from "../../src/config/api";
 
 type TaskState = "ready" | "done";
 type TaskTabId = "habits" | "activeGoals";
@@ -58,11 +54,6 @@ type GardenDesignData = {
 const maxVisibleFlowers = 10;
 const seedSlots = Array.from({ length: maxVisibleFlowers }, (_, index) => index);
 const flowerKinds: FlowerKind[] = ["coral", "sunny", "berry", "sky"];
-const apiConfig = {
-  baseUrl: getDefaultApiBaseUrl(),
-  familyToken: prototypeApiTokens.familyToken,
-  parentToken: prototypeApiTokens.parentToken,
-};
 const taskTabLabels: Record<TaskTabId, string> = {
   habits: "我的好习惯",
   activeGoals: "我的小目标",
@@ -323,7 +314,7 @@ Page({
     latestRefreshRequest = requestId;
 
     try {
-      const state = await loadState(apiConfig);
+      const state = await loadState(getPrototypeApiConfig());
 
       if (requestId !== latestRefreshRequest) {
         return;
@@ -345,7 +336,7 @@ Page({
 
   async resetGardenData() {
     try {
-      const state = await resetTestData(apiConfig);
+      const state = await resetTestData(getPrototypeApiConfig());
       const activeTaskTab: TaskTabId = "habits";
 
       this.setData({
@@ -395,7 +386,7 @@ Page({
     }
 
     try {
-      const response = await submitTask(apiConfig, taskId);
+      const response = await submitTask(getPrototypeApiConfig(), taskId);
       const todayFlowers = todayEarnedFlowers(response.state);
       const activeTaskTab = this.data.activeTaskTab;
 
