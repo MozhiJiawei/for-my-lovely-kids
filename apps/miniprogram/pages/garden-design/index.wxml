@@ -76,6 +76,10 @@
   </view>
 
   <view class="task-section">
+    <view class="task-section-header">
+      <view class="task-section-title">今日任务</view>
+      <view class="parent-settings-button" bindtap="openParentSettings">家长设置</view>
+    </view>
     <view class="task-tabs">
       <view
         wx:for="{{taskTabs}}"
@@ -91,8 +95,6 @@
     <view
       wx:for="{{visibleTasks}}"
       wx:key="id"
-      data-id="{{item.id}}"
-      bindtap="tapTask"
       class="task-card task-{{item.state}}"
     >
       <view class="task-icon">{{item.state === 'done' ? '花' : '星'}}</view>
@@ -100,7 +102,51 @@
         <view class="task-title">{{item.title}}</view>
         <view class="task-state">{{item.stateText}} · {{item.flowerValue}} 朵</view>
       </view>
-      <view class="task-action {{item.state !== 'ready' ? 'task-action-disabled' : ''}}">{{item.actionText}}</view>
+      <view class="task-actions">
+        <view
+          wx:if="{{item.state === 'ready'}}"
+          data-id="{{item.id}}"
+          bindtap="completeTask"
+          class="task-action task-action-ready"
+        >
+          完成啦
+        </view>
+        <block wx:elif="{{item.state === 'pending'}}">
+          <view data-id="{{item.id}}" bindtap="undoTaskCompletion" class="task-action task-action-secondary">
+            撤销
+          </view>
+          <view data-id="{{item.id}}" bindtap="confirmTaskCompletion" class="task-action task-action-pending">
+            确认
+          </view>
+        </block>
+        <view wx:else class="task-action task-action-done">开花啦</view>
+      </view>
+    </view>
+  </view>
+
+  <view wx:if="{{parentControlOpen}}" class="parent-lock-mask" catchtap="closeParentControl">
+    <view class="parent-lock-panel" catchtap="noop">
+      <view class="parent-lock-title">{{parentControlTitle}}</view>
+      <view class="parent-lock-subtitle">输入 6 位数字，家长权限会保留 10 分钟。</view>
+      <view class="passcode-dots">
+        <view
+          wx:for="{{passcodeSlots}}"
+          wx:key="*this"
+          class="passcode-dot {{passcodeDigits.length > index ? 'passcode-dot-filled' : ''}}"
+        ></view>
+      </view>
+      <view class="passcode-error">{{passcodeError}}</view>
+      <view class="passcode-keypad">
+        <view
+          wx:for="{{passcodeKeys}}"
+          wx:key="*this"
+          data-key="{{item}}"
+          bindtap="tapPasscodeKey"
+          class="passcode-key {{item === 'cancel' || item === 'delete' ? 'passcode-key-tool' : ''}}"
+        >
+          {{item === 'cancel' ? '取消' : item === 'delete' ? '删除' : item}}
+        </view>
+      </view>
     </view>
   </view>
 </view>
