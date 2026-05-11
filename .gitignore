@@ -13,3 +13,4 @@ apps/miniprogram/project.private.config.json
 apps/miniprogram/private.*
 prisma/dev.db
 prisma/dev.db-journal
+deploy/object-storage.env
