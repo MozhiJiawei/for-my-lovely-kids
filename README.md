@@ -48,6 +48,14 @@ When `DATABASE_URL` is not set, the API stores local SQLite data in `data/red-fl
 Back up that file before moving machines or clearing local data. The API also exposes a smoke
 health route at `GET /health`.
 
+Docker deployment scripts live in `deploy/`. On the Linux server, run:
+
+```bash
+bash deploy/deploy-api.sh
+```
+
+See `deploy/README.md` for server deploy, backup, restore, and prototype reset commands.
+
 ## Mini Program
 
 1. Open the repository root directory in WeChat Developer Tools:

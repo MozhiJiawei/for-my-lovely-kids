@@ -7,11 +7,23 @@
 
   <view class="section">
     <view class="section-title">服务</view>
+    <view class="backend-grid">
+      <button
+        wx:for="{{backendProfiles}}"
+        wx:key="key"
+        data-key="{{item.key}}"
+        bindtap="selectBackend"
+        class="backend-option {{backendKey === item.key ? 'backend-selected' : ''}}"
+      >
+        <view class="backend-label">{{item.label}}</view>
+        <view class="backend-description">{{item.description}}</view>
+      </button>
+    </view>
     <input class="input" value="{{apiBaseUrl}}" bindinput="updateApiBaseUrl" placeholder="API 地址" />
     <input class="input" value="{{familyToken}}" bindinput="updateFamilyToken" placeholder="家庭 token" />
     <input class="input" value="{{parentToken}}" bindinput="updateParentToken" placeholder="家长 token" />
     <button class="button primary full" loading="{{loading}}" bindtap="refreshState">读取服务状态</button>
-    <button class="button full" loading="{{loading}}" bindtap="resetTestData">重置测试数据</button>
+    <button class="button danger full" loading="{{loading}}" bindtap="resetTestData">重置当前后端数据库</button>
     <view class="status">{{loadSummary}}</view>
     <view class="readonly-line">已加载任务：{{taskOptions.length}} 个</view>
     <view class="readonly-line">已加载愿望：{{wishOptions.length}} 个</view>

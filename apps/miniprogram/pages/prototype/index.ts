@@ -9,9 +9,18 @@ import {
   submitTask,
   type PrototypeState,
 } from "../../src/api/client";
+import {
+  apiBackendProfiles,
+  getApiBaseUrl,
+  getDefaultApiBaseUrl,
+  prototypeApiTokens,
+  type ApiBackendKey,
+} from "../../src/config/api";
 
 type PrototypeData = {
   apiBaseUrl: string;
+  backendKey: ApiBackendKey;
+  backendProfiles: typeof apiBackendProfiles;
   familyToken: string;
   parentToken: string;
   loadSummary: string;
@@ -85,9 +94,11 @@ type PrototypeData = {
 };
 
 const initialData: PrototypeData = {
-  apiBaseUrl: "http://7.246.192.74:3000",
-  familyToken: "family-dev-token",
-  parentToken: "parent-dev-token",
+  apiBaseUrl: getDefaultApiBaseUrl(),
+  backendKey: "public",
+  backendProfiles: apiBackendProfiles,
+  familyToken: prototypeApiTokens.familyToken,
+  parentToken: prototypeApiTokens.parentToken,
   loadSummary: "还没有成功读取服务状态。",
   availableFlowers: 0,
   cumulativeFlowers: 0,
@@ -286,6 +297,16 @@ Page({
     });
   },
 
+  selectBackend(event: WechatMiniprogram.TouchEvent) {
+    const backendKey = event.currentTarget.dataset.key === "local" ? "local" : "public";
+
+    this.setData({
+      backendKey,
+      apiBaseUrl: getApiBaseUrl(backendKey),
+      message: `已切换到${backendKey === "public" ? "公网服务器" : "本机服务"}。`,
+    });
+  },
+
   updateFamilyToken(event: WechatMiniprogram.Input) {
     this.setData({
       familyToken: event.detail.value,
@@ -432,7 +453,7 @@ Page({
     } catch (error) {
       const message =
         error instanceof Error
-          ? `${error.message}（请确认后端以 NODE_ENV=test 启动，或直接用读取服务状态）`
+          ? `${error.message}（公网重置需要服务器开启调测重置，并填写正确家长 token）`
           : "重置测试数据失败。";
       this.setData({
         loading: false,

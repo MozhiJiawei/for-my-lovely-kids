@@ -635,7 +635,7 @@ page {
   font-weight: 700;
 }
 
-.dev-reset {
+.dev-tools-link {
   display: inline-flex;
   align-items: center;
   justify-content: center;
