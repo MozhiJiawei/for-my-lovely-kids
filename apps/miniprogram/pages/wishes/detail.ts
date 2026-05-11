@@ -1,6 +1,10 @@
 import { loadState, redeemWish, type PrototypeState } from "../../src/api/client";
 import { getPrototypeApiConfig } from "../../src/config/api";
 
+type ParentControlPanel = {
+  request: (reason: string) => Promise<boolean>;
+};
+
 type WishDetailData = {
   wishId: string;
   title: string;
@@ -93,6 +97,15 @@ Page({
       return;
     }
 
+    const allowed = await this.requireParentControl("兑换心愿会花掉小红花，需要家长确认。");
+
+    if (!allowed) {
+      this.setData({
+        message: "已取消家长验证，心愿没有兑换。",
+      });
+      return;
+    }
+
     this.setData({
       loading: true,
       message: "正在兑换心愿。",
@@ -118,5 +131,11 @@ Page({
     wx.switchTab({
       url: "/pages/wishes/index",
     });
+  },
+
+  requireParentControl(reason: string): Promise<boolean> {
+    const panel = this.selectComponent("#parentControl") as unknown as ParentControlPanel | null;
+
+    return panel?.request(reason) ?? Promise.resolve(false);
   },
 });

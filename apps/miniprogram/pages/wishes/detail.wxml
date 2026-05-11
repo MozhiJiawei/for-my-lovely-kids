@@ -23,4 +23,5 @@
     <view class="balance-line">完成进度：{{progress}}%</view>
   </view>
 
+  <parent-control-panel id="parentControl" />
 </view>

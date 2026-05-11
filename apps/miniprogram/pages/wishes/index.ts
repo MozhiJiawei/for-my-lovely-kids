@@ -2,6 +2,9 @@ import { loadState, redeemWish, type PrototypeState } from "../../src/api/client
 import { getPrototypeApiConfig } from "../../src/config/api";
 
 type WishKind = "repeating" | "one_time";
+type ParentControlPanel = {
+  request: (reason: string) => Promise<boolean>;
+};
 
 type WishListItem = {
   id: string;
@@ -96,16 +99,34 @@ Page({
     }
   },
 
-  openCreateEditor() {
+  async openCreateEditor() {
+    const allowed = await this.requireParentControl("新增或修改心愿需要家长确认。");
+
+    if (!allowed) {
+      this.setData({
+        message: "已取消家长验证，心愿没有变化。",
+      });
+      return;
+    }
+
     wx.navigateTo({
       url: "/pages/wishes/edit",
     });
   },
 
-  editWish(event: WechatMiniprogram.TouchEvent) {
+  async editWish(event: WechatMiniprogram.TouchEvent) {
     const wishId = String(event.currentTarget.dataset.id ?? "");
 
     if (!wishId) {
+      return;
+    }
+
+    const allowed = await this.requireParentControl("编辑心愿需要家长确认。");
+
+    if (!allowed) {
+      this.setData({
+        message: "已取消家长验证，心愿没有变化。",
+      });
       return;
     }
 
@@ -125,6 +146,15 @@ Page({
     if (!wish.enough) {
       this.setData({
         message: "小红花还不够，先去花园开花吧。",
+      });
+      return;
+    }
+
+    const allowed = await this.requireParentControl("兑换心愿会花掉小红花，需要家长确认。");
+
+    if (!allowed) {
+      this.setData({
+        message: "已取消家长验证，心愿没有兑换。",
       });
       return;
     }
@@ -161,5 +191,11 @@ Page({
     wx.navigateTo({
       url: `/pages/wishes/detail?id=${encodeURIComponent(wishId)}`,
     });
+  },
+
+  requireParentControl(reason: string): Promise<boolean> {
+    const panel = this.selectComponent("#parentControl") as unknown as ParentControlPanel | null;
+
+    return panel?.request(reason) ?? Promise.resolve(false);
   },
 });

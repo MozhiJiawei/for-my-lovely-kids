@@ -1,3 +1,6 @@
 {
-  "navigationBarTitleText": "习惯目标"
+  "navigationBarTitleText": "习惯目标",
+  "usingComponents": {
+    "parent-control-panel": "../../components/parent-control-panel/index"
+  }
 }

@@ -8,6 +8,9 @@ import {
 import { getPrototypeApiConfig } from "../../src/config/api";
 
 type WishKind = "repeating" | "one_time";
+type ParentControlPanel = {
+  request: (reason: string) => Promise<boolean>;
+};
 
 type WishEditData = {
   wishId: string;
@@ -18,6 +21,7 @@ type WishEditData = {
   modeText: string;
   message: string;
   loading: boolean;
+  parentControlReady: boolean;
 };
 
 const initialData: WishEditData = {
@@ -29,10 +33,12 @@ const initialData: WishEditData = {
   modeText: "新增心愿",
   message: "先记录标题和小红花，图片、链接和描述以后可以继续加。",
   loading: false,
+  parentControlReady: false,
 };
 
 let latestLoadRequest = 0;
 let formDirty = false;
+let pendingWishId = "";
 
 function parsePositiveInteger(value: string): number | null {
   const amount = Number(value);
@@ -54,9 +60,33 @@ Page({
   onLoad(options: Record<string, string | undefined>) {
     const wishId = decodeURIComponent(options.id ?? "");
 
+    pendingWishId = wishId;
     this.setData({
       wishId,
       modeText: wishId ? "编辑心愿" : "新增心愿",
+      message: "需要家长验证后才能管理心愿。",
+    });
+  },
+
+  onReady() {
+    void this.prepareEditor(pendingWishId);
+  },
+
+  async prepareEditor(wishId: string) {
+    const allowed = await this.requireParentControl(
+      wishId ? "编辑心愿需要家长确认。" : "新增心愿需要家长确认。",
+    );
+
+    if (!allowed) {
+      this.setData({
+        message: "已取消家长验证，不能管理心愿。",
+      });
+      return;
+    }
+
+    this.setData({
+      parentControlReady: true,
+      message: wishId ? "正在读取心愿。" : "可以新增心愿。",
     });
 
     if (wishId) {
@@ -171,6 +201,15 @@ Page({
   },
 
   async saveWish() {
+    const allowed = await this.requireParentControl("保存心愿需要家长确认。");
+
+    if (!allowed) {
+      this.setData({
+        message: "已取消家长验证，心愿没有保存。",
+      });
+      return;
+    }
+
     const flowerCost = parsePositiveInteger(this.data.flowerCostInput);
 
     if (!this.data.titleInput.trim() || flowerCost === null) {
@@ -211,5 +250,11 @@ Page({
         message: error instanceof Error ? error.message : "保存失败。",
       });
     }
+  },
+
+  requireParentControl(reason: string): Promise<boolean> {
+    const panel = this.selectComponent("#parentControl") as unknown as ParentControlPanel | null;
+
+    return panel?.request(reason) ?? Promise.resolve(false);
   },
 });

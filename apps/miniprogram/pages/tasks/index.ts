@@ -2,6 +2,9 @@ import { deleteTask, loadState, type PrototypeState } from "../../src/api/client
 import { getPrototypeApiConfig } from "../../src/config/api";
 
 type TaskKind = "repeating" | "one_time";
+type ParentControlPanel = {
+  request: (reason: string) => Promise<boolean>;
+};
 
 type TaskListItem = {
   id: string;
@@ -143,7 +146,16 @@ Page({
     });
   },
 
-  openCreateEditor() {
+  async openCreateEditor() {
+    const allowed = await this.requireParentControl("新增或修改任务需要家长确认。");
+
+    if (!allowed) {
+      this.setData({
+        message: "已取消家长验证，任务没有变化。",
+      });
+      return;
+    }
+
     wx.navigateTo({
       url: "/pages/tasks/edit",
     });
@@ -153,10 +165,19 @@ Page({
     return;
   },
 
-  editTask(event: WechatMiniprogram.TouchEvent) {
+  async editTask(event: WechatMiniprogram.TouchEvent) {
     const taskId = String(event.currentTarget.dataset.id ?? "");
 
     if (!taskId) {
+      return;
+    }
+
+    const allowed = await this.requireParentControl("编辑任务需要家长确认。");
+
+    if (!allowed) {
+      this.setData({
+        message: "已取消家长验证，任务没有变化。",
+      });
       return;
     }
 
@@ -205,11 +226,20 @@ Page({
     });
   },
 
-  deleteTask(event: WechatMiniprogram.TouchEvent) {
+  async deleteTask(event: WechatMiniprogram.TouchEvent) {
     const taskId = String(event.currentTarget.dataset.id ?? "");
     const task = this.data.tasks.find((candidate) => candidate.id === taskId);
 
     if (!task) {
+      return;
+    }
+
+    const allowed = await this.requireParentControl("删除任务需要家长确认。");
+
+    if (!allowed) {
+      this.setData({
+        message: "已取消家长验证，任务没有变化。",
+      });
       return;
     }
 
@@ -247,5 +277,11 @@ Page({
         message: error instanceof Error ? error.message : "删除失败。",
       });
     }
+  },
+
+  requireParentControl(reason: string): Promise<boolean> {
+    const panel = this.selectComponent("#parentControl") as unknown as ParentControlPanel | null;
+
+    return panel?.request(reason) ?? Promise.resolve(false);
   },
 });
