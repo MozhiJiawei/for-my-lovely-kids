@@ -5,6 +5,7 @@ import {
   type PrototypeState,
   type WishState,
 } from "../../src/api/client";
+import { getDefaultApiBaseUrl, prototypeApiTokens } from "../../src/config/api";
 
 type WishKind = "repeating" | "one_time";
 
@@ -20,9 +21,9 @@ type WishEditData = {
 };
 
 const apiConfig = {
-  baseUrl: "http://localhost:3000",
-  familyToken: "family-dev-token",
-  parentToken: "parent-dev-token",
+  baseUrl: getDefaultApiBaseUrl(),
+  familyToken: prototypeApiTokens.familyToken,
+  parentToken: prototypeApiTokens.parentToken,
 };
 
 const initialData: WishEditData = {
