@@ -1,0 +1,92 @@
+.parent-lock-mask {
+  position: fixed;
+  z-index: 20;
+  inset: 0;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 28rpx;
+  box-sizing: border-box;
+  background: rgba(37, 52, 34, 0.36);
+}
+
+.parent-lock-panel {
+  width: 100%;
+  padding: 34rpx 30rpx 30rpx;
+  border-radius: 34rpx;
+  box-sizing: border-box;
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 24rpx 70rpx rgba(45, 59, 41, 0.24);
+}
+
+.parent-lock-title {
+  color: #2f382d;
+  font-size: 34rpx;
+  font-weight: 900;
+  text-align: center;
+}
+
+.parent-lock-subtitle {
+  margin-top: 10rpx;
+  color: #6d7a66;
+  font-size: 24rpx;
+  font-weight: 700;
+  line-height: 1.4;
+  text-align: center;
+}
+
+.passcode-dots {
+  display: flex;
+  justify-content: center;
+  gap: 24rpx;
+  margin-top: 30rpx;
+}
+
+.passcode-dot {
+  width: 22rpx;
+  height: 22rpx;
+  border: 3rpx solid #b8c5b1;
+  border-radius: 50%;
+  box-sizing: border-box;
+}
+
+.passcode-dot-filled {
+  border-color: #2f382d;
+  background: #2f382d;
+}
+
+.passcode-error {
+  min-height: 38rpx;
+  margin-top: 18rpx;
+  color: #b42318;
+  font-size: 24rpx;
+  font-weight: 800;
+  line-height: 1.4;
+  text-align: center;
+}
+
+.passcode-keypad {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16rpx;
+  margin-top: 10rpx;
+}
+
+.passcode-key {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 92rpx;
+  border-radius: 50%;
+  color: #263321;
+  font-size: 34rpx;
+  font-weight: 900;
+  background: #eef5e9;
+}
+
+.passcode-key-tool {
+  border-radius: 24rpx;
+  color: #61715d;
+  font-size: 24rpx;
+  background: transparent;
+}

@@ -78,4 +78,5 @@
     </view>
   </view>
 
+  <parent-control-panel id="parentControl" />
 </view>

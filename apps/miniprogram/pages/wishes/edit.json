@@ -1,3 +1,6 @@
 {
-  "navigationBarTitleText": "编辑心愿"
+  "navigationBarTitleText": "编辑心愿",
+  "usingComponents": {
+    "parent-control-panel": "../../components/parent-control-panel/index"
+  }
 }

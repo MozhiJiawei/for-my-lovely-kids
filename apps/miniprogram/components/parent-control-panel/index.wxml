@@ -1,0 +1,25 @@
+<view wx:if="{{visible}}" class="parent-lock-mask" catchtap="cancel">
+  <view class="parent-lock-panel" catchtap="noop">
+    <view class="parent-lock-title">{{title}}</view>
+    <view class="parent-lock-subtitle">{{subtitle}}</view>
+    <view class="passcode-dots">
+      <view
+        wx:for="{{passcodeSlots}}"
+        wx:key="*this"
+        class="passcode-dot {{passcodeDigits.length > index ? 'passcode-dot-filled' : ''}}"
+      ></view>
+    </view>
+    <view class="passcode-error">{{passcodeError}}</view>
+    <view class="passcode-keypad">
+      <view
+        wx:for="{{passcodeKeys}}"
+        wx:key="*this"
+        data-key="{{item}}"
+        bindtap="tapPasscodeKey"
+        class="passcode-key {{item === 'cancel' || item === 'delete' ? 'passcode-key-tool' : ''}}"
+      >
+        {{item === 'cancel' ? '取消' : item === 'delete' ? '删除' : item}}
+      </view>
+    </view>
+  </view>
+</view>
