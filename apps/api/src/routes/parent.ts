@@ -1,10 +1,12 @@
 import { randomUUID } from "node:crypto";
 
 import {
+  archiveTask,
   approveWishRedemption,
   confirmTaskSubmission,
   createTask,
   createWish,
+  updateTask,
   updateWish,
   type RedFlowerKind,
   type WishKind,
@@ -67,6 +69,79 @@ export async function registerParentRoutes(app: FastifyInstance): Promise<void> 
         flowerValue: Number(body.flowerValue),
         kind: body.kind ?? "repeating",
         createdAt: now,
+      });
+
+      if (!next.ok) {
+        return next;
+      }
+
+      await saveTaskBook(tx, next.value.taskBook);
+
+      return next;
+    });
+
+    if (!result.ok) {
+      return reply.code(400).send({ error: result.error });
+    }
+
+    return {
+      task: result.value.task,
+      state: await loadDomainState(app.prisma),
+    };
+  });
+
+  app.post<{ Params: { id: string }; Body: CreateTaskBody }>(
+    "/api/parent/tasks/:id",
+    async (request, reply) => {
+      if (!assertPrototypeAuth(request, reply, "parent")) {
+        return;
+      }
+
+      const body = request.body ?? {};
+      const now = new Date().toISOString();
+
+      const result = await app.prisma.$transaction(async (tx) => {
+        const state = await loadDomainState(tx);
+        const next = updateTask(state.taskBook, {
+          taskId: request.params.id,
+          title: body.title ?? "",
+          flowerValue: Number(body.flowerValue),
+          kind: body.kind === "one_time" ? "one_time" : "repeating",
+          updatedAt: now,
+        });
+
+        if (!next.ok) {
+          return next;
+        }
+
+        await saveTaskBook(tx, next.value.taskBook);
+
+        return next;
+      });
+
+      if (!result.ok) {
+        return reply.code(400).send({ error: result.error });
+      }
+
+      return {
+        task: result.value.task,
+        state: await loadDomainState(app.prisma),
+      };
+    },
+  );
+
+  app.post<{ Params: { id: string } }>("/api/parent/tasks/:id/delete", async (request, reply) => {
+    if (!assertPrototypeAuth(request, reply, "parent")) {
+      return;
+    }
+
+    const now = new Date().toISOString();
+
+    const result = await app.prisma.$transaction(async (tx) => {
+      const state = await loadDomainState(tx);
+      const next = archiveTask(state.taskBook, {
+        taskId: request.params.id,
+        archivedAt: now,
       });
 
       if (!next.ok) {

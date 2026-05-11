@@ -20,6 +20,7 @@ export { createEmptyRedFlowerAccount, earnRedFlowers, spendRedFlowers } from "./
 export type {
   ConfirmTaskSubmissionInput,
   ConfirmTaskSubmissionValue,
+  ArchiveTaskInput,
   CreateTaskInput,
   SubmitTaskInput,
   Task,
@@ -28,8 +29,16 @@ export type {
   TaskStatus,
   TaskSubmission,
   TaskSubmissionStatus,
+  UpdateTaskInput,
 } from "./tasks";
-export { confirmTaskSubmission, createTask, getBusinessDayKey, submitTask } from "./tasks";
+export {
+  archiveTask,
+  confirmTaskSubmission,
+  createTask,
+  getBusinessDayKey,
+  submitTask,
+  updateTask,
+} from "./tasks";
 export type {
   ApproveWishRedemptionInput,
   ApproveWishRedemptionValue,

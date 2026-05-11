@@ -220,7 +220,295 @@ describe("red flower API flow", () => {
     await app.close();
   });
 
-  it("backfills test fixture tasks and wishes when an existing database is missing them", async () => {
+  it("persists task management edits and archive deletion through the API", async () => {
+    const app = buildApp({ prisma: getPrisma() });
+    await app.ready();
+
+    await app.inject({
+      method: "POST",
+      url: "/__test/reset",
+    });
+
+    const created = await app.inject({
+      method: "POST",
+      url: "/api/parent/tasks",
+      headers: parentHeaders,
+      payload: {
+        title: "每天整理书包",
+        flowerValue: 2,
+        kind: "repeating",
+      },
+    });
+
+    expect(created.statusCode).toBe(200);
+    const taskId = created.json().task.id as string;
+
+    const updated = await app.inject({
+      method: "POST",
+      url: `/api/parent/tasks/${taskId}`,
+      headers: parentHeaders,
+      payload: {
+        title: "每天睡前整理书包",
+        flowerValue: 3,
+        kind: "repeating",
+      },
+    });
+
+    expect(updated.statusCode).toBe(200);
+    expect(updated.json()).toMatchObject({
+      task: {
+        id: taskId,
+        title: "每天睡前整理书包",
+        flowerValue: 3,
+        kind: "repeating",
+        status: "active",
+      },
+    });
+
+    const submitted = await app.inject({
+      method: "POST",
+      url: "/api/child/task-submissions",
+      headers: familyHeaders,
+      payload: { taskId },
+    });
+
+    expect(submitted.statusCode).toBe(200);
+    expect(submitted.json()).toMatchObject({
+      submission: {
+        taskId,
+        titleSnapshot: "每天睡前整理书包",
+        flowerValueSnapshot: 3,
+        status: "confirmed",
+      },
+    });
+
+    const deleted = await app.inject({
+      method: "POST",
+      url: `/api/parent/tasks/${taskId}/delete`,
+      headers: parentHeaders,
+    });
+
+    expect(deleted.statusCode).toBe(200);
+    expect(deleted.json()).toMatchObject({
+      task: {
+        id: taskId,
+        status: "archived",
+      },
+      state: {
+        taskBook: {
+          tasks: expect.arrayContaining([
+            expect.objectContaining({
+              id: taskId,
+              title: "每天睡前整理书包",
+              status: "archived",
+            }),
+          ]),
+          submissions: expect.arrayContaining([
+            expect.objectContaining({
+              taskId,
+              titleSnapshot: "每天睡前整理书包",
+              flowerValueSnapshot: 3,
+              status: "confirmed",
+            }),
+          ]),
+        },
+      },
+    });
+
+    await expect(
+      getPrisma().task.findUniqueOrThrow({
+        where: { id: taskId },
+      }),
+    ).resolves.toMatchObject({
+      title: "每天睡前整理书包",
+      flowerValue: 3,
+      kind: "repeating",
+      status: "archived",
+    });
+    await expect(
+      getPrisma().taskSubmission.count({
+        where: { taskId },
+      }),
+    ).resolves.toBe(1);
+
+    const submitDeleted = await app.inject({
+      method: "POST",
+      url: "/api/child/task-submissions",
+      headers: familyHeaders,
+      payload: { taskId },
+    });
+
+    expect(submitDeleted.statusCode).toBe(400);
+    expect(submitDeleted.json()).toMatchObject({
+      error: {
+        code: "TASK_NOT_ACTIVE",
+      },
+    });
+    await expect(
+      getPrisma().taskSubmission.count({
+        where: { taskId },
+      }),
+    ).resolves.toBe(1);
+
+    const kindSwitchCreated = await app.inject({
+      method: "POST",
+      url: "/api/parent/tasks",
+      headers: parentHeaders,
+      payload: {
+        title: "学会整理床铺",
+        flowerValue: 4,
+        kind: "repeating",
+      },
+    });
+
+    expect(kindSwitchCreated.statusCode).toBe(200);
+    const kindSwitchTaskId = kindSwitchCreated.json().task.id as string;
+
+    const kindSwitchUpdated = await app.inject({
+      method: "POST",
+      url: `/api/parent/tasks/${kindSwitchTaskId}`,
+      headers: parentHeaders,
+      payload: {
+        title: "独立整理床铺",
+        flowerValue: 5,
+        kind: "one_time",
+      },
+    });
+
+    expect(kindSwitchUpdated.statusCode).toBe(200);
+    expect(kindSwitchUpdated.json()).toMatchObject({
+      task: {
+        id: kindSwitchTaskId,
+        title: "独立整理床铺",
+        flowerValue: 5,
+        kind: "one_time",
+        status: "active",
+      },
+      state: {
+        taskBook: {
+          tasks: expect.arrayContaining([
+            expect.objectContaining({
+              id: kindSwitchTaskId,
+              title: "独立整理床铺",
+              flowerValue: 5,
+              kind: "one_time",
+              status: "active",
+            }),
+          ]),
+        },
+      },
+    });
+    await expect(
+      getPrisma().task.findUniqueOrThrow({
+        where: { id: kindSwitchTaskId },
+      }),
+    ).resolves.toMatchObject({
+      title: "独立整理床铺",
+      flowerValue: 5,
+      kind: "one_time",
+      status: "active",
+    });
+
+    await app.close();
+  });
+
+  it("keeps managed fixture task edits and deletions after app restart", async () => {
+    let app = buildApp({ prisma: getPrisma() });
+    await app.ready();
+
+    await app.inject({
+      method: "POST",
+      url: "/__test/reset",
+    });
+
+    const edited = await app.inject({
+      method: "POST",
+      url: "/api/parent/tasks/test-task-drink-water",
+      headers: parentHeaders,
+      payload: {
+        title: "主动喝一杯水",
+        flowerValue: 3,
+        kind: "one_time",
+      },
+    });
+
+    expect(edited.statusCode).toBe(200);
+    expect(edited.json()).toMatchObject({
+      task: {
+        id: "test-task-drink-water",
+        title: "主动喝一杯水",
+        flowerValue: 3,
+        kind: "one_time",
+        status: "test",
+      },
+    });
+
+    const deleted = await app.inject({
+      method: "POST",
+      url: "/api/parent/tasks/test-task-brush-teeth/delete",
+      headers: parentHeaders,
+    });
+
+    expect(deleted.statusCode).toBe(200);
+    expect(deleted.json()).toMatchObject({
+      task: {
+        id: "test-task-brush-teeth",
+        status: "archived",
+      },
+    });
+
+    await app.close();
+
+    app = buildApp({ prisma: getPrisma() });
+    await app.ready();
+
+    const state = await app.inject({
+      method: "GET",
+      url: "/api/state",
+      headers: familyHeaders,
+    });
+
+    expect(state.statusCode).toBe(200);
+    expect(state.json()).toMatchObject({
+      taskBook: {
+        tasks: expect.arrayContaining([
+          expect.objectContaining({
+            id: "test-task-drink-water",
+            title: "主动喝一杯水",
+            flowerValue: 3,
+            kind: "one_time",
+            status: "test",
+          }),
+          expect.objectContaining({
+            id: "test-task-brush-teeth",
+            status: "archived",
+          }),
+        ]),
+      },
+    });
+
+    await expect(
+      getPrisma().task.findUniqueOrThrow({
+        where: { id: "test-task-drink-water" },
+      }),
+    ).resolves.toMatchObject({
+      title: "主动喝一杯水",
+      flowerValue: 3,
+      kind: "one_time",
+      status: "test",
+    });
+    await expect(
+      getPrisma().task.findUniqueOrThrow({
+        where: { id: "test-task-brush-teeth" },
+      }),
+    ).resolves.toMatchObject({
+      status: "archived",
+    });
+
+    await app.close();
+  });
+
+  it("does not seed test fixtures on startup and keeps fixture reset explicit", async () => {
     await getPrisma().$executeRawUnsafe(`
       CREATE TABLE IF NOT EXISTS "RedFlowerBalance" (
         "id" TEXT NOT NULL PRIMARY KEY,
@@ -250,17 +538,24 @@ describe("red flower API flow", () => {
     expect(state.statusCode).toBe(200);
     expect(state.json()).toMatchObject({
       taskBook: {
+        tasks: [],
+      },
+      wishBook: {
+        wishes: [],
+      },
+    });
+
+    const reset = await app.inject({
+      method: "POST",
+      url: "/__test/reset",
+    });
+
+    expect(reset.statusCode).toBe(200);
+    expect(reset.json()).toMatchObject({
+      taskBook: {
         tasks: expect.arrayContaining([
           expect.objectContaining({
             id: "test-task-brush-teeth",
-            status: "test",
-          }),
-          expect.objectContaining({
-            id: "test-task-toys",
-            status: "test",
-          }),
-          expect.objectContaining({
-            id: "test-task-reading",
             status: "test",
           }),
         ]),
@@ -269,14 +564,6 @@ describe("red flower API flow", () => {
         wishes: expect.arrayContaining([
           expect.objectContaining({
             id: "test-wish-carousel",
-            status: "test",
-          }),
-          expect.objectContaining({
-            id: "test-wish-picture-book",
-            status: "test",
-          }),
-          expect.objectContaining({
-            id: "test-wish-ice-cream",
             status: "test",
           }),
         ]),
@@ -1235,12 +1522,25 @@ describe("red flower API flow", () => {
     const app = buildApp({ prisma: getPrisma() });
     await app.ready();
 
+    const created = await app.inject({
+      method: "POST",
+      url: "/api/parent/tasks",
+      headers: parentHeaders,
+      payload: {
+        title: "重置前的临时任务",
+        flowerValue: 2,
+        kind: "repeating",
+      },
+    });
+
+    expect(created.statusCode).toBe(200);
+
     const submitted = await app.inject({
       method: "POST",
       url: "/api/child/task-submissions",
       headers: familyHeaders,
       payload: {
-        taskId: "test-task-brush-teeth",
+        taskId: created.json().task.id,
       },
     });
     expect(submitted.statusCode).toBe(200);
@@ -1261,6 +1561,12 @@ describe("red flower API flow", () => {
       },
       taskBook: {
         submissions: [],
+        tasks: expect.arrayContaining([
+          expect.objectContaining({
+            id: "test-task-brush-teeth",
+            status: "test",
+          }),
+        ]),
       },
     });
     await expect(getPrisma().taskSubmission.count()).resolves.toBe(0);
