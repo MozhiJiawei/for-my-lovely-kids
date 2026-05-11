@@ -1,0 +1,163 @@
+<view class="page">
+  <view class="header">
+    <view class="title">统计</view>
+    <view class="message">{{message}}</view>
+  </view>
+
+  <view class="summary-grid">
+    <view class="summary-card">
+      <view class="summary-icon green">花</view>
+      <view class="summary-number">{{totalFlowers}}</view>
+      <view class="summary-label">全部小红花</view>
+    </view>
+    <view class="summary-card">
+      <view class="summary-icon red">月</view>
+      <view class="summary-number">{{monthFlowers}}</view>
+      <view class="summary-label">本月开花</view>
+    </view>
+    <view class="summary-card">
+      <view class="summary-icon blue">日</view>
+      <view class="summary-number">{{todayFlowers}}</view>
+      <view class="summary-label">今日开花</view>
+    </view>
+  </view>
+
+  <view class="filter-section">
+    <view class="filter-trigger" bindtap="openHabitFilter">
+      <view class="filter-title">习惯筛选</view>
+      <view class="filter-value">{{selectedHabitTitle}}</view>
+      <view class="filter-arrow">▾</view>
+    </view>
+
+    <view wx:if="{{habitFilterOpen}}" class="filter-panel">
+      <view class="filter-panel-actions">
+        <view class="filter-action muted">排序和筛选</view>
+        <view class="filter-action" bindtap="clearHabitKeyword">清除筛选</view>
+      </view>
+      <view class="filter-search">
+        <input
+          class="filter-search-input"
+          value="{{habitQuery}}"
+          placeholder="搜索习惯"
+          confirm-type="search"
+          bindinput="inputHabitKeyword"
+        />
+        <view wx:if="{{habitQuery}}" class="filter-search-clear" bindtap="clearHabitSearch">×</view>
+      </view>
+      <scroll-view scroll-y class="filter-list">
+        <view
+          wx:for="{{matchedHabitFilters}}"
+          wx:key="id"
+          data-id="{{item.id}}"
+          bindtap="chooseDraftHabit"
+          class="filter-option {{item.id === draftHabitId ? 'filter-option-selected' : ''}}"
+        >
+          <view class="filter-check">{{item.id === draftHabitId ? '✓' : ''}}</view>
+          <view class="filter-option-text">{{item.title}}</view>
+        </view>
+        <view wx:if="{{matchedHabitFilters.length === 0}}" class="filter-empty">没有匹配的习惯</view>
+      </scroll-view>
+      <view class="filter-buttons">
+        <view class="filter-button confirm" bindtap="confirmHabitFilter">确定</view>
+        <view class="filter-button cancel" bindtap="cancelHabitFilter">取消</view>
+      </view>
+    </view>
+
+    <view class="selected-habit">
+      正在查看：{{selectedHabitTitle}}
+      <view wx:if="{{habitQuery || selectedHabitId !== 'all'}}" class="habit-clear" bindtap="clearHabitKeyword">
+        清
+      </view>
+    </view>
+  </view>
+
+  <view class="calendar-card">
+    <view class="month-nav">
+      <view class="month-button" bindtap="previousMonth">‹</view>
+      <view class="month-label">{{monthLabel}}</view>
+      <view class="month-button" bindtap="nextMonth">›</view>
+    </view>
+
+    <view class="weekday-row">
+      <view>日</view>
+      <view>一</view>
+      <view>二</view>
+      <view>三</view>
+      <view>四</view>
+      <view>五</view>
+      <view>六</view>
+    </view>
+
+    <view class="calendar-grid">
+      <view
+        wx:for="{{calendarDays}}"
+        wx:key="key"
+        data-key="{{item.key}}"
+        bindtap="selectDate"
+        class="day-cell {{item.statusClass}}"
+      >
+        <text wx:if="{{!item.isBlank}}">{{item.day}}</text>
+        <view wx:if="{{item.hasGoalAchievement || item.hasWishRedemption}}" class="day-markers">
+          <view wx:if="{{item.hasGoalAchievement}}" class="day-dot goal-dot"></view>
+          <view wx:if="{{item.hasWishRedemption}}" class="day-dot wish-dot"></view>
+        </view>
+      </view>
+    </view>
+
+    <view class="calendar-legend">
+      <view class="legend-item">
+        <view class="legend-swatch habit-swatch"></view>
+        <text>习惯打卡</text>
+      </view>
+      <view class="legend-item">
+        <view class="legend-dot goal-dot"></view>
+        <text>目标达成</text>
+      </view>
+      <view class="legend-item">
+        <view class="legend-dot wish-dot"></view>
+        <text>心愿兑换</text>
+      </view>
+    </view>
+  </view>
+
+  <view class="day-card">
+    <view class="day-title">{{selectedDateLabel}}</view>
+    <view class="summary-metrics event-metrics">
+      <view class="summary-metric habit">
+        <view class="metric-value">{{selectedDateHabits}}</view>
+        <view class="metric-label">习惯打卡</view>
+      </view>
+      <view class="summary-metric goal">
+        <view class="metric-value">{{selectedDateGoals}}</view>
+        <view class="metric-label">目标达成</view>
+      </view>
+      <view class="summary-metric wish">
+        <view class="metric-value">{{selectedDateWishes}}</view>
+        <view class="metric-label">心愿兑换</view>
+      </view>
+    </view>
+    <view class="summary-divider"></view>
+    <view class="summary-metrics flower-metrics">
+      <view class="summary-metric gain-result">
+        <view class="metric-value">{{selectedDateFlowers}}</view>
+        <view class="metric-label">开花</view>
+      </view>
+      <view class="summary-metric spend-result">
+        <view class="metric-value">{{selectedDateSpent}}</view>
+        <view class="metric-label">兑换消耗</view>
+      </view>
+    </view>
+  </view>
+
+  <view class="detail-card">
+    <view class="detail-title">当日明细</view>
+    <view wx:if="{{details.length === 0}}" class="empty">暂无记录</view>
+    <view wx:for="{{details}}" wx:key="id" class="detail-row">
+      <view class="detail-badge {{item.typeClass}}">{{item.kindText}}</view>
+      <view class="detail-main">
+        <view class="detail-name">{{item.title}}</view>
+        <view class="detail-meta">{{item.meta}}</view>
+      </view>
+    </view>
+  </view>
+</view>

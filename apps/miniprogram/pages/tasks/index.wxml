@@ -78,15 +78,4 @@
     </view>
   </view>
 
-  <view class="section">
-    <view class="section-title">历史完成</view>
-    <view wx:if="{{histories.length === 0}}" class="empty">还没有完成记录。</view>
-    <view wx:for="{{histories}}" wx:key="id" class="history-card">
-      <view class="history-dot"></view>
-      <view class="history-main">
-        <view class="history-title">{{item.title}}</view>
-        <view class="history-meta">{{item.flowerValue}} 朵 · {{item.statusText}} · {{item.timeText}}</view>
-      </view>
-    </view>
-  </view>
 </view>

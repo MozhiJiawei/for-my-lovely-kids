@@ -6,6 +6,7 @@
     "pages/wishes/index",
     "pages/wishes/edit",
     "pages/wishes/detail",
+    "pages/history/index",
     "pages/e2e-report/index",
     "pages/prototype/index",
     "pages/smoke/index"
@@ -33,6 +34,10 @@
       {
         "pagePath": "pages/wishes/index",
         "text": "心愿"
+      },
+      {
+        "pagePath": "pages/history/index",
+        "text": "统计"
       }
     ]
   },

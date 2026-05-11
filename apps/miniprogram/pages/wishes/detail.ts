@@ -11,11 +11,6 @@ type WishDetailData = {
   availableFlowers: number;
   enough: boolean;
   canRedeem: boolean;
-  redemptions: Array<{
-    id: string;
-    statusText: string;
-    timeText: string;
-  }>;
   message: string;
   loading: boolean;
 };
@@ -36,18 +31,9 @@ const initialData: WishDetailData = {
   availableFlowers: 0,
   enough: false,
   canRedeem: false,
-  redemptions: [],
   message: "正在读取心愿。",
   loading: false,
 };
-
-function formatTime(value: string | null): string {
-  if (!value) {
-    return "等待实现";
-  }
-
-  return value.slice(0, 10);
-}
 
 function deriveDataFromState(state: PrototypeState, wishId: string): Partial<WishDetailData> {
   const wish = state.wishBook.wishes.find((candidate) => candidate.id === wishId);
@@ -70,14 +56,6 @@ function deriveDataFromState(state: PrototypeState, wishId: string): Partial<Wis
     enough: availableFlowers >= wish.flowerCost,
     canRedeem:
       (wish.status === "active" || wish.status === "test") && availableFlowers >= wish.flowerCost,
-    redemptions: state.wishBook.redemptions
-      .filter((redemption) => redemption.wishId === wish.id)
-      .reverse()
-      .map((redemption) => ({
-        id: redemption.id,
-        statusText: redemption.status === "approved" ? "已实现" : "待批准",
-        timeText: formatTime(redemption.approvedAt ?? redemption.requestedAt),
-      })),
     message: wish.status === "archived" ? "这个一次性心愿已经实现。" : "心愿详情已准备好。",
   };
 }

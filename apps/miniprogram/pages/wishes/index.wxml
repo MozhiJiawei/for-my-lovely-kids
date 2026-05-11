@@ -44,15 +44,4 @@
     </view>
   </view>
 
-  <view class="section">
-    <view class="section-title">历史兑换</view>
-    <view wx:if="{{redemptions.length === 0}}" class="empty">还没有兑换记录。</view>
-    <view wx:for="{{redemptions}}" wx:key="id" class="history-card">
-      <view class="history-dot"></view>
-      <view class="history-main">
-        <view class="history-title">{{item.title}}</view>
-        <view class="history-meta">{{item.flowerCost}} 朵 · {{item.statusText}} · {{item.timeText}}</view>
-      </view>
-    </view>
-  </view>
 </view>

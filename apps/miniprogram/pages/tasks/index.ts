@@ -14,19 +14,10 @@ type TaskListItem = {
   deleteOpen: boolean;
 };
 
-type TaskHistoryItem = {
-  id: string;
-  title: string;
-  flowerValue: number;
-  statusText: string;
-  timeText: string;
-};
-
 type TasksData = {
   tasks: TaskListItem[];
   habits: TaskListItem[];
   goals: TaskListItem[];
-  histories: TaskHistoryItem[];
   message: string;
   loading: boolean;
 };
@@ -41,7 +32,6 @@ const initialData: TasksData = {
   tasks: [],
   habits: [],
   goals: [],
-  histories: [],
   message: "把每天的小习惯和一次性目标放在这里。",
   loading: false,
 };
@@ -56,14 +46,6 @@ function todayKey(): string {
 
 function getBusinessDayKey(value: string): string {
   return new Date(new Date(value).getTime() + 8 * 60 * 60 * 1000).toISOString().slice(0, 10);
-}
-
-function formatTime(value: string | null): string {
-  if (!value) {
-    return "等待完成";
-  }
-
-  return value.slice(0, 10);
 }
 
 function kindText(kind: TaskKind): string {
@@ -99,19 +81,6 @@ function activeTasks(state: PrototypeState, currentTasks: TaskListItem[]): TaskL
     }));
 }
 
-function historyItems(state: PrototypeState): TaskHistoryItem[] {
-  return [...state.taskBook.submissions]
-    .filter((submission) => submission.status === "confirmed")
-    .reverse()
-    .map((submission) => ({
-      id: submission.id,
-      title: submission.titleSnapshot.replace(/^\[测试\]\s*/, ""),
-      flowerValue: submission.flowerValueSnapshot,
-      statusText: "已完成",
-      timeText: formatTime(submission.confirmedAt ?? submission.submittedAt),
-    }));
-}
-
 function deriveDataFromState(
   state: PrototypeState,
   currentTasks: TaskListItem[],
@@ -122,7 +91,6 @@ function deriveDataFromState(
     tasks,
     habits: tasks.filter((task) => task.kind === "repeating"),
     goals: tasks.filter((task) => task.kind === "one_time"),
-    histories: historyItems(state),
   };
 }
 

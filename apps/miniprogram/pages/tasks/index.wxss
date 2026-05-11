@@ -226,7 +226,6 @@ page {
 }
 
 .task-card,
-.history-card,
 .empty {
   border-radius: 24rpx;
   background: #ffffff;
@@ -268,16 +267,14 @@ page {
   background: #f0a04b;
 }
 
-.task-title,
-.history-title {
+.task-title {
   color: #2f382d;
   font-size: 30rpx;
   font-weight: 900;
   line-height: 1.25;
 }
 
-.task-meta,
-.history-meta {
+.task-meta {
   margin-top: 8rpx;
   color: #6d7a66;
   font-size: 23rpx;
@@ -304,22 +301,6 @@ page {
 .icon-action {
   color: #596552;
   background: #e9f3ec;
-}
-
-.history-card {
-  display: grid;
-  grid-template-columns: 28rpx minmax(0, 1fr);
-  gap: 14rpx;
-  align-items: center;
-  margin-top: 16rpx;
-  padding: 18rpx 20rpx;
-}
-
-.history-dot {
-  width: 18rpx;
-  height: 18rpx;
-  border-radius: 50%;
-  background: #e24b45;
 }
 
 .empty {
