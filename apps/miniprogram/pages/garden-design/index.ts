@@ -1,4 +1,5 @@
 import { loadState, resetTestData, submitTask, type PrototypeState } from "../../src/api/client";
+import { getDefaultApiBaseUrl, prototypeApiTokens } from "../../src/config/api";
 
 type TaskState = "ready" | "done";
 type TaskTabId = "habits" | "activeGoals" | "achievedGoals";
@@ -52,9 +53,9 @@ const maxVisibleFlowers = 10;
 const seedSlots = Array.from({ length: maxVisibleFlowers }, (_, index) => index);
 const flowerKinds: FlowerKind[] = ["coral", "sunny", "berry", "sky"];
 const apiConfig = {
-  baseUrl: "http://localhost:3000",
-  familyToken: "family-dev-token",
-  parentToken: "parent-dev-token",
+  baseUrl: getDefaultApiBaseUrl(),
+  familyToken: prototypeApiTokens.familyToken,
+  parentToken: prototypeApiTokens.parentToken,
 };
 const taskTabLabels: Record<TaskTabId, string> = {
   habits: "我的好习惯",
@@ -270,6 +271,10 @@ function deriveDataFromState(
   };
 }
 
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : "未知错误";
+}
+
 const initialData: GardenDesignData = {
   tasks: [],
   visibleTasks: [],
@@ -313,13 +318,13 @@ Page({
       this.setData({
         ...deriveDataFromState(state, this.data.activeTaskTab),
       });
-    } catch {
+    } catch (error) {
       if (requestId !== latestRefreshRequest) {
         return;
       }
 
       this.setData({
-        dailyLine: "花园暂时连不上，请稍后再试。",
+        dailyLine: `花园暂时连不上：${errorMessage(error)}`,
       });
     }
   },
@@ -334,11 +339,17 @@ Page({
         ...deriveDataFromState(state, activeTaskTab),
         dailyLine: "小花园已经重置好啦。",
       });
-    } catch {
+    } catch (error) {
       this.setData({
-        dailyLine: "重置没有成功，请确认后端是开发状态。",
+        dailyLine: `重置没有成功：${errorMessage(error)}`,
       });
     }
+  },
+
+  openPrototypeTools() {
+    wx.navigateTo({
+      url: "/pages/prototype/index",
+    });
   },
 
   selectTaskTab(event: WechatMiniprogram.TouchEvent) {
@@ -375,9 +386,9 @@ Page({
         ...deriveDataFromState(response.state, activeTaskTab),
         dailyLine: `开花啦！现在有 ${todayFlowers} 朵小红花。`,
       });
-    } catch {
+    } catch (error) {
       this.setData({
-        dailyLine: "这朵花刚才没开成，再试一次吧。",
+        dailyLine: `这朵花刚才没开成：${errorMessage(error)}`,
       });
     }
   },

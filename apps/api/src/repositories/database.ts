@@ -1,4 +1,5 @@
 import { mkdirSync } from "node:fs";
+import { dirname } from "node:path";
 
 import { PrismaClient } from "@prisma/client";
 
@@ -8,9 +9,25 @@ export function createPrismaClient(): PrismaClient {
   if (!process.env.DATABASE_URL) {
     mkdirSync("data", { recursive: true });
     process.env.DATABASE_URL = "file:../data/red-flower-dev.db";
+  } else {
+    ensureSqliteDatabaseDirectory(process.env.DATABASE_URL);
   }
 
   return new PrismaClient();
+}
+
+function ensureSqliteDatabaseDirectory(databaseUrl: string): void {
+  if (!databaseUrl.startsWith("file:")) {
+    return;
+  }
+
+  const databasePath = databaseUrl.slice("file:".length).split("?")[0];
+
+  if (!databasePath) {
+    return;
+  }
+
+  mkdirSync(dirname(databasePath), { recursive: true });
 }
 
 export async function initializeDatabase(db: PrismaClient): Promise<void> {

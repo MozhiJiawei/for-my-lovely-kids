@@ -111,7 +111,7 @@ export function resetTestData(config: ApiConfig): Promise<PrototypeState> {
     config,
     path: "/__test/reset",
     method: "POST",
-    tokenKind: "family",
+    tokenKind: "parent",
     data: {},
   });
 }

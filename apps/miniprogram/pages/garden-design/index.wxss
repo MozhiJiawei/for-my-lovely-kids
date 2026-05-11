@@ -635,14 +635,7 @@ page {
   font-weight: 700;
 }
 
-.hero-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10rpx;
-  margin-top: 12rpx;
-}
-
-.dev-reset {
+.dev-tools-link {
   display: inline-flex;
   align-items: center;
   justify-content: center;

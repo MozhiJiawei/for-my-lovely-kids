@@ -87,6 +87,42 @@
   background: #fbfdf9;
 }
 
+.backend-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12rpx;
+}
+
+.backend-option {
+  box-sizing: border-box;
+  min-height: 112rpx;
+  padding: 16rpx;
+  border: 1rpx solid #cfded3;
+  border-radius: 8rpx;
+  text-align: left;
+  line-height: 1.2;
+  background: #fbfdf9;
+}
+
+.backend-selected {
+  border-color: #15803d;
+  background: #e9f7ee;
+}
+
+.backend-label {
+  color: #23342a;
+  font-size: 26rpx;
+  font-weight: 800;
+  line-height: 1.3;
+}
+
+.backend-description {
+  margin-top: 8rpx;
+  color: #536158;
+  font-size: 22rpx;
+  line-height: 1.35;
+}
+
 .status {
   margin-top: 18rpx;
   color: #536158;
@@ -180,6 +216,11 @@
 .primary {
   color: #ffffff;
   background: #15803d;
+}
+
+.danger {
+  color: #ffffff;
+  background: #b42318;
 }
 
 .full {

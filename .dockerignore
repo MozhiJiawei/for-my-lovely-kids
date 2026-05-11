@@ -1,0 +1,14 @@
+node_modules
+**/node_modules
+apps/miniprogram/miniprogram_npm
+coverage
+data
+tmp
+.git
+.github
+.env
+.env.*
+!.env.example
+project.private.config.json
+apps/miniprogram/project.private.config.json
+apps/miniprogram/private.*
