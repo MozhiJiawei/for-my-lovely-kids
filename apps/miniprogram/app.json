@@ -1,6 +1,8 @@
 {
   "pages": [
     "pages/garden-design/index",
+    "pages/tasks/index",
+    "pages/tasks/edit",
     "pages/wishes/index",
     "pages/wishes/edit",
     "pages/wishes/detail",
@@ -23,6 +25,10 @@
       {
         "pagePath": "pages/garden-design/index",
         "text": "花园"
+      },
+      {
+        "pagePath": "pages/tasks/index",
+        "text": "任务"
       },
       {
         "pagePath": "pages/wishes/index",

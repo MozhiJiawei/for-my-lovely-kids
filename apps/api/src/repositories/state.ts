@@ -174,44 +174,31 @@ export async function resetToDefaultFixture(db: PrismaClient): Promise<void> {
   });
 }
 
-export async function ensureDefaultFixture(db: PrismaClient): Promise<void> {
-  const balance = await db.redFlowerBalance.findUnique({
+export async function ensureDefaultState(db: PrismaClient): Promise<void> {
+  await db.redFlowerBalance.upsert({
     where: {
       id: balanceId,
     },
+    create: {
+      id: balanceId,
+      available: 0,
+      cumulative: 0,
+      updatedAt: fixtureNow,
+    },
+    update: {},
   });
-
-  if (!balance) {
-    await resetToDefaultFixture(db);
-    return;
-  }
-
-  await db.$transaction(seedTestFixtures);
 }
 
 async function seedTestFixtures(tx: Prisma.TransactionClient): Promise<void> {
   for (const task of testTasks) {
     const existing = await tx.task.findUnique({
       where: { id: task.id },
-      select: { status: true, updatedAt: true },
+      select: { id: true },
     });
-    const keepArchivedGoal = task.kind === "one_time" && existing?.status === "archived";
 
     if (!existing) {
       await tx.task.create({ data: task });
-      continue;
     }
-
-    await tx.task.update({
-      where: { id: task.id },
-      data: {
-        title: task.title,
-        flowerValue: task.flowerValue,
-        kind: task.kind,
-        status: keepArchivedGoal ? "archived" : task.status,
-        updatedAt: keepArchivedGoal ? existing.updatedAt : task.updatedAt,
-      },
-    });
   }
 
   for (const wish of testWishes) {

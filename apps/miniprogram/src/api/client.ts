@@ -14,6 +14,8 @@ export type TaskState = {
   flowerValue: number;
   kind: "repeating" | "one_time";
   status: "active" | "archived" | "test";
+  createdAt: string;
+  updatedAt: string;
 };
 
 export type WishState = {
@@ -130,6 +132,34 @@ export function createTask(
     method: "POST",
     tokenKind: "parent",
     data: input,
+  });
+}
+
+export function updateTask(
+  config: ApiConfig,
+  taskId: string,
+  input: {
+    title: string;
+    flowerValue: number;
+    kind: "repeating" | "one_time";
+  },
+): Promise<{ state: PrototypeState }> {
+  return request<{ state: PrototypeState }>({
+    config,
+    path: `/api/parent/tasks/${taskId}`,
+    method: "POST",
+    tokenKind: "parent",
+    data: input,
+  });
+}
+
+export function deleteTask(config: ApiConfig, taskId: string): Promise<{ state: PrototypeState }> {
+  return request<{ state: PrototypeState }>({
+    config,
+    path: `/api/parent/tasks/${taskId}/delete`,
+    method: "POST",
+    tokenKind: "parent",
+    data: {},
   });
 }
 

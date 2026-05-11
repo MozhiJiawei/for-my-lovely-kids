@@ -1,0 +1,92 @@
+<view class="page" bindtap="closeDeleteActions">
+  <view class="hero">
+    <view class="sky">
+      <view class="sun"></view>
+      <view class="cloud cloud-one"></view>
+      <view class="cloud cloud-two"></view>
+      <view class="spark spark-one"></view>
+      <view class="spark spark-two"></view>
+    </view>
+
+    <view class="header">
+      <view>
+        <view class="eyebrow">习惯目标</view>
+        <view class="title">小任务清单</view>
+      </view>
+      <view class="add-button" catchtap="openCreateEditor">+</view>
+    </view>
+
+    <view class="flower-pill">当前 {{tasks.length}} 个任务</view>
+    <view class="message">{{message}}</view>
+  </view>
+
+  <view class="section">
+    <view class="section-title">当前习惯/目标</view>
+    <view wx:if="{{tasks.length === 0}}" class="empty">还没有习惯或目标。</view>
+    <view wx:else>
+      <view class="task-group">
+        <view class="group-title">习惯</view>
+        <view wx:if="{{habits.length === 0}}" class="group-empty">还没有习惯。</view>
+        <view wx:for="{{habits}}" wx:key="id" class="swipe-row">
+          <view class="delete-action" data-id="{{item.id}}" catchtap="deleteTask">删除</view>
+          <view
+            class="task-card {{item.deleteOpen ? 'task-card-open' : ''}}"
+            data-id="{{item.id}}"
+            catchtap="noop"
+            bindtouchstart="touchTaskStart"
+            bindtouchend="touchTaskEnd"
+          >
+            <view class="task-icon">习</view>
+            <view class="task-main">
+              <view class="task-title">{{item.title}}</view>
+              <view class="task-meta">
+                {{item.flowerValue}} 朵 · 习惯 · {{item.completedToday ? "今日已完成" : item.statusText}}
+              </view>
+            </view>
+            <view class="task-actions">
+              <view class="icon-action" data-id="{{item.id}}" catchtap="editTask">编辑</view>
+            </view>
+          </view>
+        </view>
+      </view>
+
+      <view class="task-group">
+        <view class="group-title">目标</view>
+        <view wx:if="{{goals.length === 0}}" class="group-empty">还没有目标。</view>
+        <view wx:for="{{goals}}" wx:key="id" class="swipe-row">
+          <view class="delete-action" data-id="{{item.id}}" catchtap="deleteTask">删除</view>
+          <view
+            class="task-card {{item.deleteOpen ? 'task-card-open' : ''}}"
+            data-id="{{item.id}}"
+            catchtap="noop"
+            bindtouchstart="touchTaskStart"
+            bindtouchend="touchTaskEnd"
+          >
+            <view class="task-icon goal-icon">目</view>
+            <view class="task-main">
+              <view class="task-title">{{item.title}}</view>
+              <view class="task-meta">
+                {{item.flowerValue}} 朵 · 目标 · {{item.completedToday ? "已达成" : item.statusText}}
+              </view>
+            </view>
+            <view class="task-actions">
+              <view class="icon-action" data-id="{{item.id}}" catchtap="editTask">编辑</view>
+            </view>
+          </view>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <view class="section">
+    <view class="section-title">历史完成</view>
+    <view wx:if="{{histories.length === 0}}" class="empty">还没有完成记录。</view>
+    <view wx:for="{{histories}}" wx:key="id" class="history-card">
+      <view class="history-dot"></view>
+      <view class="history-main">
+        <view class="history-title">{{item.title}}</view>
+        <view class="history-meta">{{item.flowerValue}} 朵 · {{item.statusText}} · {{item.timeText}}</view>
+      </view>
+    </view>
+  </view>
+</view>

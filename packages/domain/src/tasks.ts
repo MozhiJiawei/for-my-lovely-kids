@@ -40,6 +40,19 @@ export type CreateTaskInput = {
   createdAt: string;
 };
 
+export type UpdateTaskInput = {
+  taskId: string;
+  title: string;
+  flowerValue: number;
+  kind: TaskKind;
+  updatedAt: string;
+};
+
+export type ArchiveTaskInput = {
+  taskId: string;
+  archivedAt: string;
+};
+
 export type SubmitTaskInput = {
   taskId: string;
   submissionId: string;
@@ -88,6 +101,82 @@ export function createTask(
       tasks: [...taskBook.tasks, task],
     },
     task,
+  });
+}
+
+export function updateTask(
+  taskBook: TaskBook,
+  input: UpdateTaskInput,
+): DomainResult<{
+  taskBook: TaskBook;
+  task: Task;
+}> {
+  const task = taskBook.tasks.find((candidate) => candidate.id === input.taskId);
+
+  if (!task) {
+    return domainError("TASK_NOT_FOUND", "Task does not exist.");
+  }
+
+  if (task.status === "archived") {
+    return domainError("TASK_ALREADY_ARCHIVED", "Task has already been deleted.");
+  }
+
+  const title = input.title.trim();
+
+  if (!title || !Number.isInteger(input.flowerValue) || input.flowerValue <= 0) {
+    return domainError("INVALID_TASK", "Task title and flower value are required.");
+  }
+
+  const updatedTask: Task = {
+    ...task,
+    title,
+    flowerValue: input.flowerValue,
+    kind: input.kind,
+    updatedAt: input.updatedAt,
+  };
+
+  return domainOk({
+    taskBook: {
+      ...taskBook,
+      tasks: taskBook.tasks.map((candidate) =>
+        candidate.id === updatedTask.id ? updatedTask : candidate,
+      ),
+    },
+    task: updatedTask,
+  });
+}
+
+export function archiveTask(
+  taskBook: TaskBook,
+  input: ArchiveTaskInput,
+): DomainResult<{
+  taskBook: TaskBook;
+  task: Task;
+}> {
+  const task = taskBook.tasks.find((candidate) => candidate.id === input.taskId);
+
+  if (!task) {
+    return domainError("TASK_NOT_FOUND", "Task does not exist.");
+  }
+
+  if (task.status === "archived") {
+    return domainError("TASK_ALREADY_ARCHIVED", "Task has already been deleted.");
+  }
+
+  const archivedTask: Task = {
+    ...task,
+    status: "archived",
+    updatedAt: input.archivedAt,
+  };
+
+  return domainOk({
+    taskBook: {
+      ...taskBook,
+      tasks: taskBook.tasks.map((candidate) =>
+        candidate.id === archivedTask.id ? archivedTask : candidate,
+      ),
+    },
+    task: archivedTask,
   });
 }
 

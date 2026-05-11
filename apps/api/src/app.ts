@@ -4,7 +4,7 @@ import type { PrismaClient } from "@prisma/client";
 import { getDomainSmokeMessage } from "@red-flower-garden/domain";
 
 import { createPrismaClient, initializeDatabase } from "./repositories/database";
-import { ensureDefaultFixture } from "./repositories/state";
+import { ensureDefaultState } from "./repositories/state";
 import { registerChildRoutes } from "./routes/child";
 import { registerParentRoutes } from "./routes/parent";
 import { registerStateRoutes } from "./routes/state";
@@ -27,7 +27,7 @@ export function buildApp(options: { prisma?: PrismaClient; skipDataSetup?: boole
   if (!options.skipDataSetup) {
     app.addHook("onReady", async () => {
       await initializeDatabase(prisma);
-      await ensureDefaultFixture(prisma);
+      await ensureDefaultState(prisma);
     });
   }
 
