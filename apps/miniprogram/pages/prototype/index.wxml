@@ -19,10 +19,17 @@
         <view class="backend-description">{{item.description}}</view>
       </button>
     </view>
-    <input class="input" value="{{apiBaseUrl}}" bindinput="updateApiBaseUrl" placeholder="API 地址" />
+    <view class="readonly-line">当前后端：{{backendKey === "local" ? "本机服务" : "公网服务器"}}</view>
+    <input
+      class="input"
+      value="{{apiBaseUrl}}"
+      bindinput="updateApiBaseUrl"
+      bindblur="saveCurrentBackend"
+      placeholder="API 地址"
+    />
     <input class="input" value="{{familyToken}}" bindinput="updateFamilyToken" placeholder="家庭 token" />
     <input class="input" value="{{parentToken}}" bindinput="updateParentToken" placeholder="家长 token" />
-    <button class="button primary full" loading="{{loading}}" bindtap="refreshState">读取服务状态</button>
+    <button class="button primary full" loading="{{loading}}" bindtap="refreshState">保存并读取服务状态</button>
     <button
       class="button danger full"
       loading="{{loading}}"

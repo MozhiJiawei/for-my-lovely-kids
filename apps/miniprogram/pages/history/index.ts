@@ -1,5 +1,5 @@
 import { loadState, type PrototypeState, type TaskState } from "../../src/api/client";
-import { getDefaultApiBaseUrl, prototypeApiTokens } from "../../src/config/api";
+import { getPrototypeApiConfig } from "../../src/config/api";
 
 type CalendarDay = {
   key: string;
@@ -49,12 +49,6 @@ type HistoryData = {
   details: DetailItem[];
   message: string;
   loading: boolean;
-};
-
-const apiConfig = {
-  baseUrl: getDefaultApiBaseUrl(),
-  familyToken: prototypeApiTokens.familyToken,
-  parentToken: prototypeApiTokens.parentToken,
 };
 
 const todayDate = new Date();
@@ -444,7 +438,7 @@ Page({
     });
 
     try {
-      const state = await loadState(apiConfig);
+      const state = await loadState(getPrototypeApiConfig());
 
       if (requestId !== latestRefreshRequest) {
         return;

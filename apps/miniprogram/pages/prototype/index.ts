@@ -11,11 +11,14 @@ import {
 } from "../../src/api/client";
 import {
   apiBackendProfiles,
+  getConfiguredApiBackendKey,
+  getConfiguredApiBaseUrl,
   getApiBaseUrl,
-  getDefaultApiBaseUrl,
+  inferApiBackendKey,
   isLocalApiBaseUrl,
   isPrototypeToolsVisible,
   prototypeApiTokens,
+  saveConfiguredApiBackend,
   type ApiBackendKey,
 } from "../../src/config/api";
 
@@ -99,9 +102,12 @@ type PrototypeData = {
   canResetData: boolean;
 };
 
+const initialBackendKey = getConfiguredApiBackendKey();
+const initialApiBaseUrl = getConfiguredApiBaseUrl();
+
 const initialData: PrototypeData = {
-  apiBaseUrl: getDefaultApiBaseUrl(),
-  backendKey: "public",
+  apiBaseUrl: initialApiBaseUrl,
+  backendKey: initialBackendKey,
   backendProfiles: apiBackendProfiles,
   familyToken: prototypeApiTokens.familyToken,
   parentToken: prototypeApiTokens.parentToken,
@@ -143,7 +149,7 @@ const initialData: PrototypeData = {
   wishId: "",
   pendingRedemptionId: "",
   enabled: false,
-  canResetData: isLocalApiBaseUrl(getDefaultApiBaseUrl()),
+  canResetData: isLocalApiBaseUrl(initialApiBaseUrl),
 };
 
 function getConfig(data: PrototypeData) {
@@ -316,19 +322,39 @@ Page({
 
     this.setData({
       apiBaseUrl,
+      backendKey: inferApiBackendKey(apiBaseUrl),
       canResetData: isLocalApiBaseUrl(apiBaseUrl),
     });
   },
 
   selectBackend(event: WechatMiniprogram.TouchEvent) {
     const backendKey = event.currentTarget.dataset.key === "local" ? "local" : "public";
+    const apiBaseUrl = getApiBaseUrl(backendKey);
+
+    this.setData(
+      {
+        backendKey,
+        apiBaseUrl,
+        canResetData: isLocalApiBaseUrl(apiBaseUrl),
+        message: `已切换到${backendKey === "public" ? "公网服务器" : "本机服务"}。`,
+      },
+      () => {
+        saveConfiguredApiBackend(backendKey, apiBaseUrl);
+        void this.refreshState();
+      },
+    );
+  },
+
+  saveCurrentBackend() {
+    const apiBaseUrl = this.data.apiBaseUrl.trim();
+    const backendKey = inferApiBackendKey(apiBaseUrl);
 
     this.setData({
       backendKey,
-      apiBaseUrl: getApiBaseUrl(backendKey),
-      canResetData: isLocalApiBaseUrl(getApiBaseUrl(backendKey)),
-      message: `已切换到${backendKey === "public" ? "公网服务器" : "本机服务"}。`,
+      apiBaseUrl,
+      canResetData: isLocalApiBaseUrl(apiBaseUrl),
     });
+    saveConfiguredApiBackend(backendKey, apiBaseUrl);
   },
 
   updateFamilyToken(event: WechatMiniprogram.Input) {
@@ -447,6 +473,7 @@ Page({
   },
 
   async refreshState() {
+    this.saveCurrentBackend();
     this.setData({
       loading: true,
       message: "正在读取服务状态。",

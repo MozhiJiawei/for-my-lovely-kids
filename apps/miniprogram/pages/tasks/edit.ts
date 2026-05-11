@@ -5,7 +5,7 @@ import {
   type PrototypeState,
   type TaskState,
 } from "../../src/api/client";
-import { getDefaultApiBaseUrl, prototypeApiTokens } from "../../src/config/api";
+import { getPrototypeApiConfig } from "../../src/config/api";
 
 type TaskKind = "repeating" | "one_time";
 
@@ -21,12 +21,6 @@ type TaskEditData = {
 
 type PreviousTaskPage = {
   refreshFromState?: (state: PrototypeState) => void;
-};
-
-const apiConfig = {
-  baseUrl: getDefaultApiBaseUrl(),
-  familyToken: prototypeApiTokens.familyToken,
-  parentToken: prototypeApiTokens.parentToken,
 };
 
 const initialData: TaskEditData = {
@@ -83,7 +77,7 @@ Page({
     });
 
     try {
-      const state = await loadState(apiConfig);
+      const state = await loadState(getPrototypeApiConfig());
 
       if (requestId !== latestLoadRequest) {
         return;
@@ -192,8 +186,8 @@ Page({
         kind: this.data.kindInput,
       };
       const response = this.data.taskId
-        ? await updateTask(apiConfig, this.data.taskId, input)
-        : await createTask(apiConfig, input);
+        ? await updateTask(getPrototypeApiConfig(), this.data.taskId, input)
+        : await createTask(getPrototypeApiConfig(), input);
 
       const pages = getCurrentPages();
       const previousPage = pages[pages.length - 2] as PreviousTaskPage | undefined;

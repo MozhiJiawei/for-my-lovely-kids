@@ -1,5 +1,5 @@
 import { loadState, redeemWish, type PrototypeState } from "../../src/api/client";
-import { getDefaultApiBaseUrl, prototypeApiTokens } from "../../src/config/api";
+import { getPrototypeApiConfig } from "../../src/config/api";
 
 type WishKind = "repeating" | "one_time";
 
@@ -19,12 +19,6 @@ type WishesData = {
   wishes: WishListItem[];
   message: string;
   loading: boolean;
-};
-
-const apiConfig = {
-  baseUrl: getDefaultApiBaseUrl(),
-  familyToken: prototypeApiTokens.familyToken,
-  parentToken: prototypeApiTokens.parentToken,
 };
 
 const initialData: WishesData = {
@@ -79,7 +73,7 @@ Page({
     });
 
     try {
-      const state = await loadState(apiConfig);
+      const state = await loadState(getPrototypeApiConfig());
 
       if (requestId !== latestRefreshRequest) {
         return;
@@ -142,7 +136,7 @@ Page({
     });
 
     try {
-      const response = await redeemWish(apiConfig, wishId);
+      const response = await redeemWish(getPrototypeApiConfig(), wishId);
 
       this.setData({
         ...deriveDataFromState(response.state),
