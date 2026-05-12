@@ -12,6 +12,7 @@ NPM_REGISTRY=${NPM_REGISTRY:-https://registry.npmmirror.com}
 RUN_PRE_DEPLOY_BACKUP=${RUN_PRE_DEPLOY_BACKUP:-1}
 FORCE_REBUILD=${FORCE_REBUILD:-0}
 FORCE_RECREATE=${FORCE_RECREATE:-0}
+ALLOW_DESTRUCTIVE_MIGRATIONS=${ALLOW_DESTRUCTIVE_MIGRATIONS:-0}
 
 cd "$APP_DIR"
 
@@ -76,34 +77,110 @@ wait_for_health() {
   return 1
 }
 
+database_exists() {
+  docker volume inspect "$DATA_VOLUME" >/dev/null 2>&1 &&
+    docker run --rm -v "$DATA_VOLUME:/data:ro" "$IMAGE_NAME" test -f /data/red-flower-prod.db
+}
+
+run_migration_command() {
+  local command=$1
+  docker run --rm \
+    --env-file "$APP_DIR/deploy/api.env" \
+    -e NODE_ENV=production \
+    -e "BUILD_ID=$git_sha" \
+    -e "PRE_DEPLOY_BACKUP_VERIFIED=$pre_deploy_backup_verified" \
+    -e "ALLOW_DESTRUCTIVE_MIGRATIONS=$ALLOW_DESTRUCTIVE_MIGRATIONS" \
+    -v "$APP_DIR/apps/api/src:/app/apps/api/src:ro" \
+    -v "$APP_DIR/packages/domain/src:/app/packages/domain/src:ro" \
+    -v "$DATA_VOLUME:/data" \
+    "$IMAGE_NAME" \
+    pnpm --filter @red-flower-garden/api exec tsx src/migrate.ts "$command"
+}
+
 if [ "$FORCE_REBUILD" = "1" ] || ! image_exists; then
   build_image
 else
   echo "Using existing image $IMAGE_NAME. Set FORCE_REBUILD=1 to rebuild dependencies/runtime." >&2
 fi
 
-if docker inspect "$CONTAINER_NAME" >/dev/null 2>&1 &&
-  [ "$FORCE_RECREATE" != "1" ] &&
-  container_has_code_mounts; then
-  docker restart "$CONTAINER_NAME" >/dev/null
-  wait_for_health
-  exit $?
+git_sha=${GIT_SHA:-}
+if [ -z "$git_sha" ] && command -v git >/dev/null 2>&1; then
+  git_sha=$(git rev-parse --short HEAD 2>/dev/null || true)
+fi
+if [ -z "$git_sha" ]; then
+  git_sha="unknown"
 fi
 
-if [ "$RUN_PRE_DEPLOY_BACKUP" = "1" ]; then
+docker volume create "$DATA_VOLUME" >/dev/null
+
+had_database=0
+if database_exists; then
+  had_database=1
+fi
+
+pre_deploy_backup_verified=0
+stopped_for_migration=0
+echo "Migration status:"
+migration_status=$(run_migration_command status)
+printf '%s\n' "$migration_status"
+pending_migrations=$(printf '%s\n' "$migration_status" | sed -n 's/^pending=//p')
+if [ -z "$pending_migrations" ]; then
+  echo "Migration status did not report pending migrations." >&2
+  exit 1
+fi
+
+if [ "$pending_migrations" != "<none>" ] && [ "$had_database" = "1" ]; then
+  if [ "$RUN_PRE_DEPLOY_BACKUP" != "1" ]; then
+    echo "Existing production database requires RUN_PRE_DEPLOY_BACKUP=1 before migrations." >&2
+    exit 1
+  fi
+
   if docker inspect "$CONTAINER_NAME" >/dev/null 2>&1; then
-    BACKUP_REASON=before-deploy \
+    BACKUP_REASON=before-migration \
       CONTAINER_NAME="$CONTAINER_NAME" \
-      bash deploy/backup-sqlite.sh >/dev/null
-  elif docker volume inspect "$DATA_VOLUME" >/dev/null 2>&1 &&
-    docker run --rm -v "$DATA_VOLUME:/data:ro" "$IMAGE_NAME" test -f /data/red-flower-prod.db; then
-    BACKUP_REASON=before-deploy-volume \
+      bash deploy/backup-sqlite.sh
+  else
+    BACKUP_REASON=before-migration-volume \
       BACKUP_ALLOW_VOLUME_FALLBACK=1 \
       CONTAINER_NAME="$CONTAINER_NAME" \
       IMAGE_NAME="$IMAGE_NAME" \
       DATA_VOLUME="$DATA_VOLUME" \
-      bash deploy/backup-sqlite.sh >/dev/null
+      bash deploy/backup-sqlite.sh
   fi
+  pre_deploy_backup_verified=1
+else
+  if [ "$pending_migrations" = "<none>" ]; then
+    echo "No pending migrations; skipping pre-migration backup and migration apply." >&2
+  else
+    echo "No existing production database found; migration will initialize a fresh database." >&2
+  fi
+  pre_deploy_backup_verified=1
+fi
+
+if [ "$pending_migrations" != "<none>" ]; then
+  echo "Migration preflight:"
+  run_migration_command preflight
+  if docker inspect "$CONTAINER_NAME" >/dev/null 2>&1; then
+    echo "Stopping API container before applying migrations to prevent writes during migration." >&2
+    docker stop "$CONTAINER_NAME" >/dev/null
+    stopped_for_migration=1
+  fi
+  echo "Applying pending migrations:"
+  run_migration_command up
+fi
+echo "Post-migration compatibility check:"
+run_migration_command check
+
+if docker inspect "$CONTAINER_NAME" >/dev/null 2>&1 &&
+  [ "$FORCE_RECREATE" != "1" ] &&
+  container_has_code_mounts; then
+  if [ "$stopped_for_migration" = "1" ]; then
+    docker start "$CONTAINER_NAME" >/dev/null
+  else
+    docker restart "$CONTAINER_NAME" >/dev/null
+  fi
+  wait_for_health
+  exit $?
 fi
 
 previous_container=""
@@ -122,7 +199,6 @@ rollback_previous_container() {
   fi
 }
 
-docker volume create "$DATA_VOLUME" >/dev/null
 if ! docker run -d \
   --name "$CONTAINER_NAME" \
   --restart unless-stopped \

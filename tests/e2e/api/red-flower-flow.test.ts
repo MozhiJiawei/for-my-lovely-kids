@@ -7,6 +7,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { buildApp } from "../../../apps/api/src/app";
 import { assertSafePrototypeAuthConfig } from "../../../apps/api/src/auth/prototype-auth";
+import { migrateDatabase } from "../../../apps/api/src/migrations/runner";
 
 const familyHeaders = {
   "x-family-token": "family-dev-token",
@@ -2071,6 +2072,7 @@ describe("red flower API flow", () => {
 
   it("rejects fixture reset in production mode", async () => {
     process.env.NODE_ENV = "production";
+    await migrateDatabase(getPrisma(), { buildId: "test-build" });
     const app = buildApp({ prisma: getPrisma() });
     await app.ready();
 
