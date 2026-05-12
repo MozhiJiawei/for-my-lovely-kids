@@ -83,3 +83,14 @@ model MemorialDecoration {
   kind             String
   createdAt        DateTime
 }
+
+model DatabaseMigration {
+  id             String    @id
+  name           String
+  appliedAt      DateTime?
+  buildId        String?
+  checksum       String
+  status         String
+  failureMessage String?
+  rollbackNote   String
+}

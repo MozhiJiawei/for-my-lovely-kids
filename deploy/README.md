@@ -18,7 +18,10 @@ The script:
 - uses DaoCloud's Node image mirror and npmmirror by default for mainland network reliability
 - mounts API and domain source code read-only from the server checkout into the container
 - restarts the existing mounted container for ordinary source-only changes
-- creates a verified pre-deployment SQLite backup when an existing API container must be recreated
+- checks the current database version and pending migrations
+- creates a verified pre-migration SQLite backup only when pending migrations will run against an existing production database
+- stops the API container before applying pending migrations so old code cannot write during migration
+- runs migration preflight, applies pending versioned migrations, and checks database compatibility before replacing or restarting the API container
 - starts or restarts `red-flower-garden-api` on port `3000`
 - rolls back to the previous container if the replacement fails its health check
 - stores SQLite data in the Docker volume `red-flower-data`
@@ -56,6 +59,34 @@ docker compose up -d --build
 The production API listens inside the container on `PORT=3000` and persists SQLite at `/data/red-flower-prod.db`.
 API and domain source code are bind-mounted into the container, so source-only changes need a
 container restart rather than an image rebuild.
+
+## Database Migrations
+
+Database changes are versioned in `apps/api/src/migrations`. A schema change must add a new ordered
+migration file and register it in `apps/api/src/migrations/index.ts`; CI runs
+`pnpm run db:migration-guard` so `prisma/schema.prisma` cannot change without an upgrade migration.
+
+Useful local commands:
+
+```bash
+pnpm --filter @red-flower-garden/api exec tsx src/migrate.ts status
+pnpm --filter @red-flower-garden/api exec tsx src/migrate.ts up
+pnpm --filter @red-flower-garden/api exec tsx src/migrate.ts check
+```
+
+Production deploys run:
+
+1. migration status check
+2. verified pre-migration backup when pending migrations exist
+3. migration preflight
+4. stop the current API container before applying pending migrations
+5. pending migrations
+6. compatibility check
+7. API restart or replacement
+
+Destructive migrations must set `destructive: true` in their migration metadata and require
+`ALLOW_DESTRUCTIVE_MIGRATIONS=1` during deployment. Prefer additive migrations and data backfills
+for family history data.
 
 ## Backup And Restore
 

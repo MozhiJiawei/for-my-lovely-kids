@@ -16,6 +16,7 @@ RUN apt-get update \
   && rm -rf /var/lib/apt/lists/*
 
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml tsconfig.base.json ./
+COPY scripts ./scripts
 COPY prisma ./prisma
 COPY apps/api/package.json ./apps/api/package.json
 COPY apps/miniprogram/package.json ./apps/miniprogram/package.json

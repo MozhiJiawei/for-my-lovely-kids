@@ -7,9 +7,10 @@
   "scripts": {
     "lint": "eslint . --max-warnings=0",
     "format:check": "prettier . --check",
+    "db:migration-guard": "node scripts/check-db-migration-guard.mjs",
     "typecheck": "tsc -p packages/domain/tsconfig.json --noEmit && tsc -p apps/api/tsconfig.json --noEmit && tsc -p apps/miniprogram/tsconfig.json --noEmit",
     "test": "vitest run",
-    "ci": "eslint . --max-warnings=0 && prettier . --check && tsc -p packages/domain/tsconfig.json --noEmit && tsc -p apps/api/tsconfig.json --noEmit && tsc -p apps/miniprogram/tsconfig.json --noEmit && vitest run && corepack pnpm run e2e",
+    "ci": "eslint . --max-warnings=0 && prettier . --check && corepack pnpm run db:migration-guard && tsc -p packages/domain/tsconfig.json --noEmit && tsc -p apps/api/tsconfig.json --noEmit && tsc -p apps/miniprogram/tsconfig.json --noEmit && vitest run && corepack pnpm run e2e",
     "e2e": "node tests/e2e/miniprogram/devtools-load.mjs",
     "dev:api": "tsx apps/api/src/server.ts",
     "miniprogram:typecheck": "tsc -p apps/miniprogram/tsconfig.json --noEmit",
