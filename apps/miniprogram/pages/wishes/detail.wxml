@@ -11,10 +11,17 @@
       <view class="progress-fill" style="width: {{progress}}%;"></view>
     </view>
     <view class="message">{{message}}</view>
-    <view class="button-row">
+    <image wx:if="{{imageUrl}}" class="wish-hero-image" src="{{imageUrl}}" mode="aspectFill"></image>
+    <view wx:if="{{!readonly}}" class="button-row">
       <view class="action-button primary {{canRedeem ? '' : 'action-disabled'}}" bindtap="redeemCurrentWish">兑换</view>
-      <view class="action-button secondary" bindtap="openWishList">管理</view>
+      <view wx:if="{{!readonly}}" class="action-button secondary" bindtap="editWish">修改</view>
     </view>
+  </view>
+
+  <view wx:if="{{description || linkUrl}}" class="section">
+    <view class="section-title">心愿信息</view>
+    <view wx:if="{{description}}" class="description">{{description}}</view>
+    <view wx:if="{{linkUrl}}" class="link-copy-button" bindtap="copyWishLink">复制链接</view>
   </view>
 
   <view class="section">

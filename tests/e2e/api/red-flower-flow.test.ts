@@ -65,7 +65,15 @@ async function createManagedTask(
 
 async function createManagedWish(
   app: ReturnType<typeof buildApp>,
-  payload: { title: string; flowerCost: number; kind?: "repeating" | "one_time"; pinned?: boolean },
+  payload: {
+    title: string;
+    flowerCost: number;
+    kind?: "repeating" | "one_time";
+    pinned?: boolean;
+    description?: string;
+    imageUrl?: string;
+    linkUrl?: string;
+  },
 ) {
   const response = await app.inject({
     method: "POST",
@@ -94,6 +102,12 @@ afterEach(async () => {
   delete process.env.FAMILY_ACCESS_TOKEN;
   delete process.env.PARENT_ACCESS_TOKEN;
   delete process.env.HOST;
+  delete process.env.ALIYUN_OSS_ACCESS_KEY_ID;
+  delete process.env.ALIYUN_OSS_ACCESS_KEY_SECRET;
+  delete process.env.ALIYUN_OSS_BUCKET;
+  delete process.env.ALIYUN_OSS_ENDPOINT;
+  delete process.env.ALIYUN_OSS_PREFIX;
+  delete process.env.ALIYUN_OSS_PUBLIC_BASE_URL;
   rmSync(tempDir, { recursive: true, force: true });
 });
 
@@ -206,6 +220,9 @@ describe("red flower API flow", () => {
         flowerCost: 8,
         kind: "repeating",
         pinned: true,
+        description: "准备周五晚上一起看，提前选片。",
+        imageUrl: "https://example.com/movie-night.jpg",
+        linkUrl: "https://example.com/movie-list",
       },
     });
 
@@ -218,6 +235,9 @@ describe("red flower API flow", () => {
         flowerCost: 8,
         kind: "repeating",
         pinned: true,
+        description: "准备周五晚上一起看，提前选片。",
+        imageUrl: "https://example.com/movie-night.jpg",
+        linkUrl: "https://example.com/movie-list",
         status: "active",
       },
     });
@@ -231,6 +251,9 @@ describe("red flower API flow", () => {
         flowerCost: 7,
         kind: "one_time",
         pinned: false,
+        description: "改成这个周末的一次家庭电影。",
+        imageUrl: "https://example.com/final-movie.jpg",
+        linkUrl: "https://example.com/final-movie",
       },
     });
 
@@ -242,6 +265,9 @@ describe("red flower API flow", () => {
         flowerCost: 7,
         kind: "one_time",
         pinned: false,
+        description: "改成这个周末的一次家庭电影。",
+        imageUrl: "https://example.com/final-movie.jpg",
+        linkUrl: "https://example.com/final-movie",
         status: "active",
       },
       state: {
@@ -253,6 +279,9 @@ describe("red flower API flow", () => {
               flowerCost: 7,
               kind: "one_time",
               pinned: false,
+              description: "改成这个周末的一次家庭电影。",
+              imageUrl: "https://example.com/final-movie.jpg",
+              linkUrl: "https://example.com/final-movie",
             }),
           ]),
         },
@@ -268,8 +297,54 @@ describe("red flower API flow", () => {
       flowerCost: 7,
       kind: "one_time",
       pinned: false,
+      description: "改成这个周末的一次家庭电影。",
+      imageUrl: "https://example.com/final-movie.jpg",
+      linkUrl: "https://example.com/final-movie",
       status: "active",
     });
+
+    await app.close();
+  });
+
+  it("creates a parent-only Aliyun OSS upload policy for wish images", async () => {
+    process.env.ALIYUN_OSS_ACCESS_KEY_ID = "test-access-key";
+    process.env.ALIYUN_OSS_ACCESS_KEY_SECRET = "test-secret";
+    process.env.ALIYUN_OSS_BUCKET = "test-bucket";
+    process.env.ALIYUN_OSS_ENDPOINT = "https://oss-cn-guangzhou.aliyuncs.com";
+    process.env.ALIYUN_OSS_PREFIX = "red-flower-garden/";
+    process.env.ALIYUN_OSS_PUBLIC_BASE_URL = "https://cdn.example.com/red-flower";
+
+    const app = buildApp({ prisma: getPrisma() });
+    await app.ready();
+
+    const response = await app.inject({
+      method: "POST",
+      url: "/api/parent/wish-image-uploads",
+      headers: parentHeaders,
+      payload: {
+        fileName: "dream.png",
+        contentType: "image/png",
+      },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toMatchObject({
+      url: "https://test-bucket.oss-cn-guangzhou.aliyuncs.com",
+      publicUrl: expect.stringMatching(
+        /^https:\/\/cdn\.example\.com\/red-flower\/red-flower-garden\/images\/wishes\//,
+      ),
+      formData: {
+        OSSAccessKeyId: "test-access-key",
+        "x-oss-object-acl": "public-read",
+        success_action_status: "201",
+        "Content-Type": "image/png",
+      },
+    });
+    expect(response.json().objectKey).toMatch(
+      /^red-flower-garden\/images\/wishes\/\d{4}-\d{2}-\d{2}\/.+\.png$/,
+    );
+    expect(response.json().formData).toHaveProperty("policy");
+    expect(response.json().formData).toHaveProperty("Signature");
 
     await app.close();
   });
@@ -821,7 +896,7 @@ describe("red flower API flow", () => {
     });
 
     expect(columns.map((column) => column.name)).toEqual(
-      expect.arrayContaining(["kind", "pinned"]),
+      expect.arrayContaining(["kind", "pinned", "description", "imageUrl", "linkUrl"]),
     );
     expect(state.statusCode).toBe(200);
     expect(state.json()).toMatchObject({
@@ -831,6 +906,9 @@ describe("red flower API flow", () => {
             id: "legacy-wish",
             kind: "one_time",
             pinned: false,
+            description: "",
+            imageUrl: "",
+            linkUrl: "",
           }),
         ]),
       },

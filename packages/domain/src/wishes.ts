@@ -11,6 +11,9 @@ export type Wish = {
   flowerCost: number;
   kind: WishKind;
   pinned: boolean;
+  description: string;
+  imageUrl: string;
+  linkUrl: string;
   status: WishStatus;
   sortOrder: number;
   createdAt: string;
@@ -40,6 +43,9 @@ export type CreateWishInput = {
   flowerCost: number;
   kind: WishKind;
   pinned: boolean;
+  description?: string;
+  imageUrl?: string;
+  linkUrl?: string;
   createdAt: string;
 };
 
@@ -49,6 +55,9 @@ export type UpdateWishInput = {
   flowerCost: number;
   kind: WishKind;
   pinned: boolean;
+  description?: string;
+  imageUrl?: string;
+  linkUrl?: string;
   updatedAt: string;
 };
 
@@ -80,12 +89,9 @@ export function createWish(
 }> {
   const title = input.title.trim();
 
-  if (
-    !title ||
-    !Number.isInteger(input.flowerCost) ||
-    input.flowerCost <= 0 ||
-    !isWishKind(input.kind)
-  ) {
+  const detail = normalizeWishDetail(input);
+
+  if (!title || !detail.ok || !isValidWishCore(input.flowerCost, input.kind)) {
     return domainError("INVALID_WISH", "Wish title and flower cost are required.");
   }
 
@@ -101,6 +107,9 @@ export function createWish(
     flowerCost: input.flowerCost,
     kind: input.kind,
     pinned: input.pinned,
+    description: detail.value.description,
+    imageUrl: detail.value.imageUrl,
+    linkUrl: detail.value.linkUrl,
     status: "active",
     sortOrder: activeWishCount + 1,
     createdAt: input.createdAt,
@@ -130,12 +139,9 @@ export function updateWish(
     return domainError("WISH_NOT_FOUND", "Wish does not exist.");
   }
 
-  if (
-    !title ||
-    !Number.isInteger(input.flowerCost) ||
-    input.flowerCost <= 0 ||
-    !isWishKind(input.kind)
-  ) {
+  const detail = normalizeWishDetail(input);
+
+  if (!title || !detail.ok || !isValidWishCore(input.flowerCost, input.kind)) {
     return domainError("INVALID_WISH", "Wish title and flower cost are required.");
   }
 
@@ -145,6 +151,9 @@ export function updateWish(
     flowerCost: input.flowerCost,
     kind: input.kind,
     pinned: input.pinned,
+    description: detail.value.description,
+    imageUrl: detail.value.imageUrl,
+    linkUrl: detail.value.linkUrl,
     updatedAt: input.updatedAt,
   };
 
@@ -276,6 +285,39 @@ export function approveWishRedemption(
 
 function isWishKind(value: string): value is WishKind {
   return value === "repeating" || value === "one_time";
+}
+
+function isValidWishCore(flowerCost: number, kind: string): kind is WishKind {
+  return Number.isInteger(flowerCost) && flowerCost > 0 && isWishKind(kind);
+}
+
+function normalizeWishDetail(input: {
+  description?: string;
+  imageUrl?: string;
+  linkUrl?: string;
+}):
+  | { ok: true; value: { description: string; imageUrl: string; linkUrl: string } }
+  | { ok: false } {
+  const description = (input.description ?? "").trim();
+  const imageUrl = (input.imageUrl ?? "").trim();
+  const linkUrl = (input.linkUrl ?? "").trim();
+
+  if (description.length > 1000 || !isOptionalHttpUrl(imageUrl) || !isOptionalHttpUrl(linkUrl)) {
+    return { ok: false };
+  }
+
+  return {
+    ok: true,
+    value: {
+      description,
+      imageUrl,
+      linkUrl,
+    },
+  };
+}
+
+function isOptionalHttpUrl(value: string): boolean {
+  return !value || value.startsWith("https://") || value.startsWith("http://");
 }
 
 function hasExistingRedemptionForWish(wishBook: WishBook, wishId: string): boolean {

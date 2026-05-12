@@ -1,9 +1,5 @@
-import { loadState, resetTestData, submitTask, type PrototypeState } from "../../src/api/client";
-import {
-  getConfiguredApiBaseUrl,
-  getPrototypeApiConfig,
-  isPrototypeToolsVisible,
-} from "../../src/config/api";
+import { loadState, submitTask, type PrototypeState } from "../../src/api/client";
+import { getConfiguredApiBaseUrl, getPrototypeApiConfig } from "../../src/config/api";
 import {
   hasParentPasscode,
   isParentControlUnlocked,
@@ -61,7 +57,6 @@ type GardenDesignData = {
   flowerSlots: FlowerSlot[];
   seedSlots: number[];
   dailyLine: string;
-  showPrototypeTools: boolean;
   parentControlOpen: boolean;
   parentControlMode: ParentControlMode;
   parentControlTitle: string;
@@ -387,7 +382,6 @@ const initialData: GardenDesignData = {
   flowerSlots: [],
   seedSlots: [],
   dailyLine: "今天也一起把小花园照亮吧。",
-  showPrototypeTools: false,
   parentControlOpen: false,
   parentControlMode: "unlock",
   parentControlTitle: "家长确认",
@@ -409,9 +403,6 @@ Page({
   onLoad() {
     wx.setNavigationBarTitle({
       title: "小红花花园",
-    });
-    this.setData({
-      showPrototypeTools: isPrototypeToolsVisible(),
     });
   },
 
@@ -445,36 +436,6 @@ Page({
         dailyLine: `花园暂时连不上：${errorMessage(error)}`,
       });
     }
-  },
-
-  async resetGardenData() {
-    try {
-      const state = await resetTestData(getPrototypeApiConfig());
-      const activeTaskTab: TaskTabId = "habits";
-      const pendingTaskIds = new Set<string>();
-      savePendingTaskIds(pendingTaskIds);
-      latestState = state;
-
-      this.setData({
-        activeTaskTab,
-        ...deriveDataFromState(state, activeTaskTab, pendingTaskIds),
-        dailyLine: "小花园已经重置好啦。",
-      });
-    } catch (error) {
-      this.setData({
-        dailyLine: `重置没有成功：${errorMessage(error)}`,
-      });
-    }
-  },
-
-  openPrototypeTools() {
-    if (!this.data.showPrototypeTools) {
-      return;
-    }
-
-    wx.navigateTo({
-      url: "/pages/prototype/index",
-    });
   },
 
   openParentSettings() {

@@ -33,8 +33,8 @@ For source-only backend changes, sync the repository on the server and run:
 bash deploy/deploy-api.sh
 ```
 
-For dependency, Dockerfile, Prisma client generation, or package metadata changes, rebuild the
-runtime image explicitly:
+For dependency, Dockerfile, runtime package, or package metadata changes, rebuild the runtime image
+explicitly:
 
 ```bash
 FORCE_REBUILD=1 bash deploy/deploy-api.sh
@@ -57,8 +57,10 @@ docker compose up -d --build
 ```
 
 The production API listens inside the container on `PORT=3000` and persists SQLite at `/data/red-flower-prod.db`.
-API and domain source code are bind-mounted into the container, so source-only changes need a
-container restart rather than an image rebuild.
+API, domain, and Prisma schema files are bind-mounted into the container. The deploy flow refreshes
+the generated Prisma client inside the runtime container before migration commands and API startup,
+so additive schema migrations do not require a full image rebuild unless dependencies or runtime
+packages changed.
 
 ## Database Migrations
 
@@ -77,12 +79,13 @@ pnpm --filter @red-flower-garden/api exec tsx src/migrate.ts check
 Production deploys run:
 
 1. migration status check
-2. verified pre-migration backup when pending migrations exist
-3. migration preflight
-4. stop the current API container before applying pending migrations
-5. pending migrations
-6. compatibility check
-7. API restart or replacement
+2. API container recreation when pending migrations exist, so startup refreshes the generated Prisma client
+3. verified pre-migration backup when pending migrations exist
+4. migration preflight
+5. stop the current API container before applying pending migrations
+6. pending migrations
+7. compatibility check
+8. API restart or replacement
 
 Destructive migrations must set `destructive: true` in their migration metadata and require
 `ALLOW_DESTRUCTIVE_MIGRATIONS=1` during deployment. Prefer additive migrations and data backfills
@@ -119,6 +122,9 @@ red-flower-garden/backups/prod/red-flower-prod-20260511T064500Z-94236f4-before-d
 `ALIYUN_OSS_PREFIX` is the app-level object root. The backup script stores database backups under
 `${ALIYUN_OSS_PREFIX}backups/<environment>/`. Future object features, such as uploaded images, should
 use sibling prefixes under the same app root.
+
+`ALIYUN_OSS_PUBLIC_BASE_URL` is optional. Set it to a CDN domain or public bucket URL when Mini Program
+features need to display uploaded objects such as wish images.
 
 ### Manual Backup
 

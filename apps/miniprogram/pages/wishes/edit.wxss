@@ -33,6 +33,10 @@ page {
   font-weight: 900;
 }
 
+.nav-action-disabled {
+  color: #aeb8a8;
+}
+
 .title {
   margin-top: 42rpx;
   color: #2d3b29;
@@ -61,9 +65,9 @@ page {
 }
 
 .input,
-.cost-input {
+.cost-input,
+.textarea {
   box-sizing: border-box;
-  height: 84rpx;
   padding: 0 22rpx;
   border: 1rpx solid #dbe8cc;
   border-radius: 22rpx;
@@ -73,9 +77,79 @@ page {
   background: #fbfff1;
 }
 
+.input,
+.cost-input {
+  height: 84rpx;
+}
+
 .input {
   width: 100%;
   margin-top: 14rpx;
+}
+
+.compact-input {
+  margin-top: 12rpx;
+  font-size: 24rpx;
+  font-weight: 800;
+}
+
+.textarea {
+  width: 100%;
+  min-height: 180rpx;
+  margin-top: 14rpx;
+  padding-top: 20rpx;
+  line-height: 1.45;
+}
+
+.image-field {
+  display: grid;
+  grid-template-columns: 180rpx minmax(0, 1fr);
+  gap: 16rpx;
+  align-items: stretch;
+  margin-top: 14rpx;
+}
+
+.wish-image-preview,
+.image-placeholder {
+  width: 180rpx;
+  height: 180rpx;
+  border-radius: 24rpx;
+  overflow: hidden;
+}
+
+.image-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  border: 2rpx dashed #c7d8ba;
+  color: #8a9a82;
+  font-size: 24rpx;
+  font-weight: 900;
+  background: #f7faf5;
+}
+
+.image-actions {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 14rpx;
+}
+
+.image-action {
+  min-height: 72rpx;
+  border-radius: 999rpx;
+  color: #ffffff;
+  font-size: 26rpx;
+  font-weight: 900;
+  line-height: 72rpx;
+  text-align: center;
+  background: #e24b45;
+}
+
+.image-action.muted {
+  color: #596552;
+  background: #e9f3ec;
 }
 
 .cost-row {

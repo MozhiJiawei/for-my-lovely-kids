@@ -24,6 +24,9 @@ export type WishState = {
   flowerCost: number;
   kind: "repeating" | "one_time";
   pinned: boolean;
+  description: string;
+  imageUrl: string;
+  linkUrl: string;
   status: "active" | "archived" | "test";
   sortOrder: number;
   createdAt: string;
@@ -90,6 +93,13 @@ type ApiErrorBody = {
   };
 };
 
+export type WishImageUploadPolicy = {
+  url: string;
+  objectKey: string;
+  publicUrl: string;
+  formData: Record<string, string>;
+};
+
 export class PrototypeApiError extends Error {
   constructor(
     message: string,
@@ -110,9 +120,7 @@ export function loadState(config: ApiConfig): Promise<PrototypeState> {
 
 export function resetTestData(config: ApiConfig): Promise<PrototypeState> {
   if (!isLocalApiBaseUrl(config.baseUrl)) {
-    return Promise.reject(
-      new PrototypeApiError("公网 API 不允许重置数据库，请切换到本机服务。", "LOCAL_RESET_ONLY"),
-    );
+    return Promise.reject(new PrototypeApiError("现在不能重置小花园。", "LOCAL_RESET_ONLY"));
   }
 
   return request<PrototypeState>({
@@ -176,6 +184,9 @@ export function createWish(
     flowerCost: number;
     kind: "repeating" | "one_time";
     pinned: boolean;
+    description?: string;
+    imageUrl?: string;
+    linkUrl?: string;
   },
 ): Promise<{ state: PrototypeState }> {
   return request<{ state: PrototypeState }>({
@@ -195,11 +206,27 @@ export function updateWish(
     flowerCost: number;
     kind: "repeating" | "one_time";
     pinned: boolean;
+    description?: string;
+    imageUrl?: string;
+    linkUrl?: string;
   },
 ): Promise<{ state: PrototypeState }> {
   return request<{ state: PrototypeState }>({
     config,
     path: `/api/parent/wishes/${wishId}`,
+    method: "POST",
+    tokenKind: "parent",
+    data: input,
+  });
+}
+
+export function createWishImageUploadPolicy(
+  config: ApiConfig,
+  input: { fileName: string; contentType: string },
+): Promise<WishImageUploadPolicy> {
+  return request<WishImageUploadPolicy>({
+    config,
+    path: "/api/parent/wish-image-uploads",
     method: "POST",
     tokenKind: "parent",
     data: input,
@@ -378,12 +405,7 @@ function requestWithBaseUrls<T>(
           return;
         }
 
-        reject(
-          new PrototypeApiError(
-            `连不上服务，请检查 API 地址。已尝试：${baseUrls.join("、")}`,
-            "NETWORK_ERROR",
-          ),
-        );
+        reject(new PrototypeApiError("暂时连不上小花园，请稍后再试。", "NETWORK_ERROR"));
       },
     });
   });

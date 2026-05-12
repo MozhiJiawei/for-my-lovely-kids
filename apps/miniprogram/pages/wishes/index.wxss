@@ -205,6 +205,12 @@ page {
   font-size: 24rpx;
   font-weight: 900;
   background: #ef7567;
+  overflow: hidden;
+}
+
+.wish-thumb {
+  width: 72rpx;
+  height: 72rpx;
 }
 
 .wish-title {
@@ -220,6 +226,21 @@ page {
   font-size: 23rpx;
   font-weight: 800;
   line-height: 1.35;
+}
+
+.wish-tags {
+  display: flex;
+  gap: 8rpx;
+  margin-top: 10rpx;
+}
+
+.wish-tag {
+  padding: 5rpx 12rpx;
+  border-radius: 999rpx;
+  color: #596552;
+  font-size: 20rpx;
+  font-weight: 900;
+  background: #e9f3ec;
 }
 
 .wish-actions {

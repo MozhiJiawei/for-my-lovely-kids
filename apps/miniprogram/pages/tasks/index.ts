@@ -1,4 +1,4 @@
-import { deleteTask, loadState, type PrototypeState } from "../../src/api/client";
+﻿import { deleteTask, loadState, type PrototypeState } from "../../src/api/client";
 import { getPrototypeApiConfig } from "../../src/config/api";
 
 type TaskKind = "repeating" | "one_time";
@@ -72,7 +72,7 @@ function activeTasks(state: PrototypeState, currentTasks: TaskListItem[]): TaskL
       flowerValue: task.flowerValue,
       kind: task.kind,
       kindText: kindText(task.kind),
-      statusText: task.status === "test" ? "测试" : "正式",
+      statusText: task.kind === "one_time" ? "待达成" : "待完成",
       completedToday: confirmedTodayTaskIds.has(task.id),
       deleteOpen: openDeleteIds.has(task.id),
     }));
@@ -151,7 +151,7 @@ Page({
 
     if (!allowed) {
       this.setData({
-        message: "已取消家长验证，任务没有变化。",
+        message: "已取消家长确认，任务没有变化。",
       });
       return;
     }
@@ -176,7 +176,7 @@ Page({
 
     if (!allowed) {
       this.setData({
-        message: "已取消家长验证，任务没有变化。",
+        message: "已取消家长确认，任务没有变化。",
       });
       return;
     }
@@ -238,7 +238,7 @@ Page({
 
     if (!allowed) {
       this.setData({
-        message: "已取消家长验证，任务没有变化。",
+        message: "已取消家长确认，任务没有变化。",
       });
       return;
     }

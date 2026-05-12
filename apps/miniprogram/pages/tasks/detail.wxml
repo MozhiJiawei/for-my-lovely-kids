@@ -1,0 +1,24 @@
+<view class="page">
+  <view class="hero">
+    <view class="eyebrow">成长记录</view>
+    <view class="title">{{title}}</view>
+    <view class="meta-row">
+      <view class="meta-pill">{{kindText}}</view>
+      <view class="meta-pill">{{statusText}}</view>
+      <view class="meta-pill">{{flowerValue}} 朵</view>
+    </view>
+    <view class="message">{{message}}</view>
+  </view>
+
+  <view class="section">
+    <view class="section-title">完成历程</view>
+    <view class="metric-row">
+      <view class="metric-label">累计完成</view>
+      <view class="metric-value">{{completedCount}} 次</view>
+    </view>
+    <view class="metric-row">
+      <view class="metric-label">最近完成</view>
+      <view class="metric-value">{{lastCompletedText}}</view>
+    </view>
+  </view>
+</view>

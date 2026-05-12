@@ -30,7 +30,7 @@ describe("database migrations", () => {
     expect(result).toMatchObject({
       oldVersion: null,
       newVersion: targetDatabaseVersion,
-      applied: ["0001"],
+      applied: ["0001", "0002"],
     });
     await expect(getMigrationStatus(prisma)).resolves.toMatchObject({
       currentVersion: targetDatabaseVersion,
@@ -46,6 +46,11 @@ describe("database migrations", () => {
     ).resolves.toEqual([
       expect.objectContaining({
         id: "0001",
+        buildId: "test-build",
+        status: "success",
+      }),
+      expect.objectContaining({
+        id: "0002",
         buildId: "test-build",
         status: "success",
       }),
@@ -91,7 +96,7 @@ describe("database migrations", () => {
     `);
 
     await expect(assertDatabaseIsCompatible(prisma)).rejects.toThrow(
-      "Required migrations are missing: 0001",
+      "Required migrations are missing: 0001, 0002",
     );
   });
 
