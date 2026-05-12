@@ -33,6 +33,13 @@ Tool mapping:
 - `data`, `tmp`, real `.env` files, production DB files, and secret files must not be committed.
 - User-facing documentation should be written in Chinese. Agent-facing and internal technical documentation should be written in English. Preserve English technical terms when translation could introduce ambiguity.
 
+# Documentation Index
+
+- User-facing full product use cases: `docs/product/use-cases/red-flower-garden-use-cases.md`.
+- Development-time architecture views: `docs/architecture/red-flower-garden-architecture.md`.
+- Operational deployment, migration, backup, and restore commands: `deploy/README.md`.
+- Historical feature plans and requirement drafts: `docs/plans/`.
+
 # Quality Checks
 
 Common commands:
