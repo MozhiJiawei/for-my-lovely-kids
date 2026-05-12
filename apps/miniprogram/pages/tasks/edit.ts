@@ -1,4 +1,4 @@
-import {
+﻿import {
   createTask,
   loadState,
   updateTask,
@@ -66,7 +66,7 @@ Page({
     this.setData({
       taskId,
       modeText: taskId ? "编辑习惯/目标" : "新增习惯/目标",
-      message: "需要家长验证后才能管理任务。",
+      message: "需要家长确认后才能管理任务。",
     });
   },
 
@@ -81,7 +81,7 @@ Page({
 
     if (!allowed) {
       this.setData({
-        message: "已取消家长验证，不能管理任务。",
+        message: "已取消家长确认，不能管理任务。",
       });
       return;
     }
@@ -199,7 +199,7 @@ Page({
 
     if (!allowed) {
       this.setData({
-        message: "已取消家长验证，任务没有保存。",
+        message: "已取消家长确认，任务没有保存。",
       });
       return;
     }

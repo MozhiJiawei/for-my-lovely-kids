@@ -1,4 +1,4 @@
-import { loadState, redeemWish, type PrototypeState } from "../../src/api/client";
+﻿import { loadState, redeemWish, type PrototypeState } from "../../src/api/client";
 import { getPrototypeApiConfig } from "../../src/config/api";
 
 type WishKind = "repeating" | "one_time";
@@ -13,6 +13,9 @@ type WishListItem = {
   kind: WishKind;
   kindText: string;
   pinned: boolean;
+  imageUrl: string;
+  hasLink: boolean;
+  hasDescription: boolean;
   statusText: string;
   enough: boolean;
 };
@@ -47,7 +50,10 @@ function activeWishes(state: PrototypeState): WishListItem[] {
       kind: wish.kind,
       kindText: kindText(wish.kind),
       pinned: wish.pinned,
-      statusText: wish.status === "test" ? "测试" : "正式",
+      imageUrl: wish.imageUrl,
+      hasLink: !!wish.linkUrl,
+      hasDescription: !!wish.description,
+      statusText: wish.status === "archived" ? "已实现" : "可兑换",
       enough: state.redFlowers.balance.available >= wish.flowerCost,
     }));
 }
@@ -104,7 +110,7 @@ Page({
 
     if (!allowed) {
       this.setData({
-        message: "已取消家长验证，心愿没有变化。",
+        message: "已取消家长确认，心愿没有变化。",
       });
       return;
     }
@@ -125,7 +131,7 @@ Page({
 
     if (!allowed) {
       this.setData({
-        message: "已取消家长验证，心愿没有变化。",
+        message: "已取消家长确认，心愿没有变化。",
       });
       return;
     }
@@ -154,7 +160,7 @@ Page({
 
     if (!allowed) {
       this.setData({
-        message: "已取消家长验证，心愿没有兑换。",
+        message: "已取消家长确认，心愿没有兑换。",
       });
       return;
     }

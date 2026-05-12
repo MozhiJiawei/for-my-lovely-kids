@@ -60,6 +60,12 @@ container_has_code_mounts() {
       grep -qx '/app/packages/domain/src'
 }
 
+container_has_prisma_mount() {
+  docker inspect "$CONTAINER_NAME" \
+    --format '{{range .Mounts}}{{println .Destination}}{{end}}' 2>/dev/null |
+    grep -qx '/app/prisma'
+}
+
 wait_for_health() {
   for _ in $(seq 1 20); do
     if curl -fsS "http://127.0.0.1:$HOST_PORT/health" >/dev/null; then
@@ -92,9 +98,10 @@ run_migration_command() {
     -e "ALLOW_DESTRUCTIVE_MIGRATIONS=$ALLOW_DESTRUCTIVE_MIGRATIONS" \
     -v "$APP_DIR/apps/api/src:/app/apps/api/src:ro" \
     -v "$APP_DIR/packages/domain/src:/app/packages/domain/src:ro" \
+    -v "$APP_DIR/prisma:/app/prisma:ro" \
     -v "$DATA_VOLUME:/data" \
     "$IMAGE_NAME" \
-    pnpm --filter @red-flower-garden/api exec tsx src/migrate.ts "$command"
+    sh -lc "pnpm exec prisma generate >/tmp/prisma-generate.log && pnpm --filter @red-flower-garden/api exec tsx src/migrate.ts '$command'"
 }
 
 if [ "$FORCE_REBUILD" = "1" ] || ! image_exists; then
@@ -127,6 +134,10 @@ pending_migrations=$(printf '%s\n' "$migration_status" | sed -n 's/^pending=//p'
 if [ -z "$pending_migrations" ]; then
   echo "Migration status did not report pending migrations." >&2
   exit 1
+fi
+
+if [ "$pending_migrations" != "<none>" ]; then
+  FORCE_RECREATE=1
 fi
 
 if [ "$pending_migrations" != "<none>" ] && [ "$had_database" = "1" ]; then
@@ -173,7 +184,8 @@ run_migration_command check
 
 if docker inspect "$CONTAINER_NAME" >/dev/null 2>&1 &&
   [ "$FORCE_RECREATE" != "1" ] &&
-  container_has_code_mounts; then
+  container_has_code_mounts &&
+  container_has_prisma_mount; then
   if [ "$stopped_for_migration" = "1" ]; then
     docker start "$CONTAINER_NAME" >/dev/null
   else
@@ -209,8 +221,10 @@ if ! docker run -d \
   -p "$HOST_PORT:$CONTAINER_PORT" \
   -v "$APP_DIR/apps/api/src:/app/apps/api/src:ro" \
   -v "$APP_DIR/packages/domain/src:/app/packages/domain/src:ro" \
+  -v "$APP_DIR/prisma:/app/prisma:ro" \
   -v "$DATA_VOLUME:/data" \
-  "$IMAGE_NAME" >/dev/null; then
+  "$IMAGE_NAME" \
+  sh -lc "pnpm exec prisma generate && pnpm --filter @red-flower-garden/api exec tsx src/server.ts" >/dev/null; then
   rollback_previous_container
   echo "Failed to start replacement API container" >&2
   exit 1

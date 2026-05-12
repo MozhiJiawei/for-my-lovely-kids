@@ -510,7 +510,7 @@ page {
 
 .detail-row {
   display: grid;
-  grid-template-columns: 112rpx minmax(0, 1fr);
+  grid-template-columns: 112rpx minmax(0, 1fr) 84rpx;
   gap: 18rpx;
   align-items: center;
   padding: 22rpx 0;
@@ -561,6 +561,13 @@ page {
   color: #6d7a66;
   font-size: 24rpx;
   font-weight: 800;
+}
+
+.detail-view-indicator {
+  color: #e24b45;
+  font-size: 23rpx;
+  font-weight: 900;
+  text-align: right;
 }
 
 .detail-actions {

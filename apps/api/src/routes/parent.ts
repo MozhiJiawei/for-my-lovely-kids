@@ -24,6 +24,7 @@ import {
   saveWishBook,
   saveWishBookRedFlowersAndGarden,
 } from "../repositories/state";
+import { createWishImageUploadPolicy } from "../services/object-storage";
 
 type CreateTaskBody = {
   title?: string;
@@ -36,6 +37,9 @@ type CreateWishBody = {
   flowerCost?: number;
   kind?: WishKind;
   pinned?: boolean;
+  description?: string;
+  imageUrl?: string;
+  linkUrl?: string;
 };
 
 type ConfirmTasksBody = {
@@ -48,6 +52,11 @@ type UpdateHistoryTaskSubmissionBody = {
 
 type UpdateHistoryWishRedemptionBody = {
   flowerCost?: number;
+};
+
+type CreateWishImageUploadBody = {
+  fileName?: string;
+  contentType?: string;
 };
 
 const flowerKinds: RedFlowerKind[] = ["coral", "sunny", "berry", "sky"];
@@ -215,6 +224,9 @@ export async function registerParentRoutes(app: FastifyInstance): Promise<void> 
         flowerCost: Number(body.flowerCost),
         kind: body.kind === "repeating" ? "repeating" : "one_time",
         pinned: body.pinned === true,
+        description: body.description ?? "",
+        imageUrl: body.imageUrl ?? "",
+        linkUrl: body.linkUrl ?? "",
         createdAt: now,
       });
 
@@ -255,6 +267,9 @@ export async function registerParentRoutes(app: FastifyInstance): Promise<void> 
           flowerCost: Number(body.flowerCost),
           kind: body.kind === "repeating" ? "repeating" : "one_time",
           pinned: body.pinned === true,
+          description: body.description ?? "",
+          imageUrl: body.imageUrl ?? "",
+          linkUrl: body.linkUrl ?? "",
           updatedAt: now,
         });
 
@@ -275,6 +290,33 @@ export async function registerParentRoutes(app: FastifyInstance): Promise<void> 
         wish: result.value.wish,
         state: await loadDomainState(app.prisma),
       };
+    },
+  );
+
+  app.post<{ Body: CreateWishImageUploadBody }>(
+    "/api/parent/wish-image-uploads",
+    async (request, reply) => {
+      if (!assertPrototypeAuth(request, reply, "parent")) {
+        return;
+      }
+
+      try {
+        const fileName = request.body?.fileName;
+        const contentType = request.body?.contentType;
+
+        return createWishImageUploadPolicy({
+          ...(fileName ? { fileName } : {}),
+          ...(contentType ? { contentType } : {}),
+        });
+      } catch (error) {
+        return reply.code(503).send({
+          error: {
+            code: "OBJECT_STORAGE_NOT_CONFIGURED",
+            message:
+              error instanceof Error ? error.message : "Aliyun OSS image upload is not configured.",
+          },
+        });
+      }
     },
   );
 

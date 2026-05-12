@@ -24,11 +24,18 @@
     <view class="section-title">当前心愿</view>
     <view wx:if="{{wishes.length === 0}}" class="empty">还没有心愿。</view>
     <view wx:for="{{wishes}}" wx:key="id" class="wish-card">
-      <view class="wish-icon" data-id="{{item.id}}" bindtap="openDetail">愿</view>
+      <view class="wish-icon" data-id="{{item.id}}" bindtap="openDetail">
+        <image wx:if="{{item.imageUrl}}" class="wish-thumb" src="{{item.imageUrl}}" mode="aspectFill"></image>
+        <text wx:else>愿</text>
+      </view>
       <view class="wish-main" data-id="{{item.id}}" bindtap="openDetail">
         <view class="wish-title">{{item.title}}</view>
         <view class="wish-meta">
           {{item.flowerCost}} 朵 · {{item.kindText}} · {{item.pinned ? "首页泡泡" : "自动排序"}}
+        </view>
+        <view wx:if="{{item.hasLink || item.hasDescription}}" class="wish-tags">
+          <text wx:if="{{item.hasDescription}}" class="wish-tag">描述</text>
+          <text wx:if="{{item.hasLink}}" class="wish-tag">链接</text>
         </view>
       </view>
       <view class="wish-actions">

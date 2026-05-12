@@ -152,18 +152,26 @@
   <view class="detail-card">
     <view class="detail-title">当日明细</view>
     <view wx:if="{{details.length === 0}}" class="empty">暂无记录</view>
-    <view wx:for="{{details}}" wx:key="id" class="detail-row {{item.canManage ? 'detail-row-manageable' : ''}}">
+    <view
+      wx:for="{{details}}"
+      wx:key="id"
+      class="detail-row {{item.canManage ? 'detail-row-manageable' : ''}}"
+      data-id="{{item.id}}"
+      data-type="{{item.recordType}}"
+      bindtap="openDetail"
+    >
       <view class="detail-badge {{item.typeClass}}">{{item.kindText}}</view>
       <view class="detail-main">
         <view class="detail-name">{{item.title}}</view>
         <view class="detail-meta">{{item.meta}}</view>
       </view>
+      <view wx:if="{{!item.canManage}}" class="detail-view-indicator">查看</view>
       <view wx:if="{{item.canManage}}" class="detail-actions">
         <view
           class="detail-action"
           data-id="{{item.id}}"
           data-type="{{item.recordType}}"
-          bindtap="editDetail"
+          catchtap="editDetail"
         >
           改花
         </view>
@@ -171,7 +179,7 @@
           class="detail-action danger"
           data-id="{{item.id}}"
           data-type="{{item.recordType}}"
-          bindtap="deleteDetail"
+          catchtap="deleteDetail"
         >
           删除
         </view>

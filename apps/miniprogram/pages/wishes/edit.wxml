@@ -2,7 +2,7 @@
   <view class="sheet">
     <view class="sheet-nav">
       <view class="nav-action" bindtap="cancel">取消</view>
-      <view wx:if="{{parentControlReady}}" class="nav-action" bindtap="saveWish">保存</view>
+      <view wx:if="{{parentControlReady}}" class="nav-action {{imageUploading ? 'nav-action-disabled' : ''}}" bindtap="saveWish">保存</view>
     </view>
 
     <view class="title">{{modeText}}</view>
@@ -12,6 +12,24 @@
       <view class="field">
         <view class="field-label">名称</view>
         <input class="input" value="{{titleInput}}" bindinput="updateTitle" placeholder="例如：周末坐旋转木马" />
+      </view>
+
+      <view class="field">
+        <view class="field-label">图片</view>
+        <view class="image-field">
+          <image wx:if="{{imageUrlInput}}" class="wish-image-preview" src="{{imageUrlInput}}" mode="aspectFill"></image>
+          <view wx:else class="image-placeholder">心愿图片</view>
+          <view class="image-actions">
+            <view class="image-action" bindtap="chooseWishImage">{{imageUploading ? "上传中" : imageUrlInput ? "换图" : "上传图片"}}</view>
+            <view wx:if="{{imageUrlInput}}" class="image-action muted" bindtap="removeWishImage">移除</view>
+          </view>
+        </view>
+        <input
+          class="input compact-input"
+          value="{{imageUrlInput}}"
+          bindinput="updateImageUrl"
+          placeholder="或粘贴图片链接"
+        />
       </view>
 
       <view class="field">
@@ -59,12 +77,28 @@
         <switch checked="{{pinnedInput}}" bindchange="updatePinned" />
       </view>
 
-      <view class="future-panel">
-        <view class="future-title">后续增强</view>
-        <view class="future-line">图片、链接、描述会放在这个编辑页继续扩展。</view>
+      <view class="field">
+        <view class="field-label">链接</view>
+        <input
+          class="input"
+          value="{{linkUrlInput}}"
+          bindinput="updateLinkUrl"
+          placeholder="商品或活动链接，可选"
+        />
       </view>
 
-      <button class="save-button" loading="{{loading}}" bindtap="saveWish">保存心愿</button>
+      <view class="field">
+        <view class="field-label">详细描述</view>
+        <textarea
+          class="textarea"
+          value="{{descriptionInput}}"
+          bindinput="updateDescription"
+          maxlength="1000"
+          placeholder="写下心愿细节、规格、颜色、购买备注等"
+        ></textarea>
+      </view>
+
+      <button class="save-button" loading="{{loading || imageUploading}}" bindtap="saveWish">保存心愿</button>
     </block>
   </view>
   <parent-control-panel id="parentControl" />

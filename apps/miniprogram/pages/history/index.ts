@@ -1,4 +1,4 @@
-import {
+﻿import {
   deleteHistoryTaskSubmission,
   deleteHistoryWishRedemption,
   loadState,
@@ -30,6 +30,7 @@ type HabitFilter = {
 type DetailItem = {
   id: string;
   recordType: "task" | "wish";
+  sourceId: string;
   title: string;
   meta: string;
   kindText: string;
@@ -386,6 +387,7 @@ function detailItems(state: PrototypeState, key: string, selectedHabitId: string
       return {
         id: submission.id,
         recordType: "task" as const,
+        sourceId: submission.taskId,
         title: stripTestPrefix(submission.titleSnapshot),
         meta: `+${submission.flowerValueSnapshot} 朵 · ${submission.confirmedAt!.slice(11, 16)}`,
         kindText: taskKind === "one_time" ? "目标达成" : "习惯打卡",
@@ -409,6 +411,7 @@ function detailItems(state: PrototypeState, key: string, selectedHabitId: string
     .map((redemption) => ({
       id: redemption.id,
       recordType: "wish" as const,
+      sourceId: redemption.wishId,
       title: stripTestPrefix(redemption.titleSnapshot),
       meta: `-${redemption.flowerCostSnapshot} 朵 · ${redemption.approvedAt!.slice(11, 16)}`,
       kindText: "心愿兑换",
@@ -630,7 +633,7 @@ Page({
 
     if (!allowed) {
       this.setData({
-        message: "已取消家长验证，历史记录没有修改。",
+        message: "已取消家长确认，历史记录没有修改。",
       });
       return;
     }
@@ -646,6 +649,21 @@ Page({
     });
   },
 
+  openDetail(event: WechatMiniprogram.TouchEvent) {
+    const record = this.findDetailRecord(event);
+
+    if (!record) {
+      return;
+    }
+
+    wx.navigateTo({
+      url:
+        record.recordType === "wish"
+          ? `/pages/wishes/detail?id=${encodeURIComponent(record.sourceId)}&readonly=1`
+          : `/pages/tasks/detail?id=${encodeURIComponent(record.sourceId)}`,
+    });
+  },
+
   async deleteDetail(event: WechatMiniprogram.TouchEvent) {
     const record = this.findDetailRecord(event);
 
@@ -657,7 +675,7 @@ Page({
 
     if (!allowed) {
       this.setData({
-        message: "已取消家长验证，历史记录没有删除。",
+        message: "已取消家长确认，历史记录没有删除。",
       });
       return;
     }
@@ -743,9 +761,7 @@ Page({
     const id = String(event.currentTarget.dataset.id ?? "");
     const recordType = String(event.currentTarget.dataset.type ?? "");
 
-    return this.data.details.find(
-      (record) => record.id === id && record.recordType === recordType,
-    );
+    return this.data.details.find((record) => record.id === id && record.recordType === recordType);
   },
 
   async updateHistoryRecord(record: DetailItem, flowerAmount: number) {

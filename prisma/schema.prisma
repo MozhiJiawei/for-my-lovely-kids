@@ -40,6 +40,9 @@ model Wish {
   flowerCost Int
   kind       String   @default("one_time")
   pinned     Boolean  @default(false)
+  description String  @default("")
+  imageUrl    String  @default("")
+  linkUrl     String  @default("")
   status     String
   sortOrder  Int
   createdAt  DateTime

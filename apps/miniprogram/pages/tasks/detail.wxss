@@ -1,0 +1,103 @@
+page {
+  background: #f7faf5;
+}
+
+.page {
+  min-height: 100vh;
+  box-sizing: border-box;
+  padding: 32rpx 28rpx 80rpx;
+  color: #2f382d;
+  background: linear-gradient(180deg, #fff8de 0%, #f8fff0 44%, #f7faf5 100%);
+}
+
+.hero,
+.section {
+  background: #ffffff;
+  box-shadow: 0 14rpx 36rpx rgba(72, 106, 65, 0.12);
+}
+
+.hero {
+  padding: 30rpx;
+  border-radius: 30rpx;
+  background: radial-gradient(circle at 20% 10%, #ffffff, #ffeaa1 44%, #ffbd70 100%);
+}
+
+.eyebrow {
+  color: #146a36;
+  font-size: 22rpx;
+  font-weight: 900;
+}
+
+.title {
+  margin-top: 12rpx;
+  color: #2d3b29;
+  font-size: 46rpx;
+  font-weight: 900;
+  line-height: 1.15;
+}
+
+.meta-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10rpx;
+  margin-top: 18rpx;
+}
+
+.meta-pill {
+  padding: 10rpx 16rpx;
+  border-radius: 999rpx;
+  color: #5c4f2a;
+  font-size: 23rpx;
+  font-weight: 900;
+  background: rgba(255, 255, 255, 0.72);
+}
+
+.message {
+  margin-top: 18rpx;
+  color: #5c4f2a;
+  font-size: 26rpx;
+  font-weight: 800;
+  line-height: 1.45;
+}
+
+.section {
+  margin-top: 24rpx;
+  padding: 28rpx;
+  border-radius: 28rpx;
+}
+
+.section-title {
+  color: #2f382d;
+  font-size: 34rpx;
+  font-weight: 900;
+}
+
+.metric-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 18rpx;
+  align-items: center;
+  min-height: 62rpx;
+  margin-top: 18rpx;
+  padding-bottom: 18rpx;
+  border-bottom: 1rpx solid #edf2e8;
+}
+
+.metric-row:last-child {
+  border-bottom: 0;
+  padding-bottom: 0;
+}
+
+.metric-label {
+  color: #6d7a66;
+  font-size: 25rpx;
+  font-weight: 900;
+}
+
+.metric-value {
+  min-width: 0;
+  color: #2f382d;
+  font-size: 27rpx;
+  font-weight: 900;
+  text-align: right;
+}
