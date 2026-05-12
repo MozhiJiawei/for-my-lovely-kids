@@ -61,6 +61,7 @@ corepack pnpm run ci
 
 - Never commit SSH keys, AccessKeys, `deploy/api.env`, `deploy/object-storage.env`, production DB files, or backup files.
 - Do not read or print secret values. When showing configuration, show only variable names or `<redacted>`.
+- Mini Program actions that manage tasks, wishes, history records, red flowers, or other child-facing state must be protected by the existing parent-control flow. Reuse `apps/miniprogram/src/parent-control.ts` and the `parent-control-panel` component, including its unlock cache; do not introduce a separate passcode store or parallel confirmation logic.
 - Do not directly copy a live SQLite file. Backups must use SQLite online backup semantics and integrity verification.
 - Do not bypass the atomic scripts in `deploy` with ad hoc production deploy, backup, or restore flows.
 - Run long-running or destructive remote operations step by step. Before each step, state the impact and exactly what that step will do.

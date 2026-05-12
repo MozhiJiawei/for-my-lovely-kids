@@ -1705,6 +1705,294 @@ describe("red flower API flow", () => {
     await app.close();
   });
 
+  it("edits and deletes today's task history as an atomic reward rollback", async () => {
+    const app = buildApp({ prisma: getPrisma() });
+    await app.ready();
+
+    await resetFixture(app);
+    const taskId = await createManagedTask(app, {
+      title: "今天的误操作目标",
+      flowerValue: 2,
+      kind: "one_time",
+    });
+    const submitted = await app.inject({
+      method: "POST",
+      url: "/api/child/task-submissions",
+      headers: familyHeaders,
+      payload: { taskId },
+    });
+
+    expect(submitted.statusCode).toBe(200);
+    const submissionId = submitted.json().submission.id as string;
+
+    const edited = await app.inject({
+      method: "POST",
+      url: `/api/parent/history/task-submissions/${submissionId}`,
+      headers: parentHeaders,
+      payload: { flowerValue: 5 },
+    });
+
+    expect(edited.statusCode).toBe(200);
+    expect(edited.json().state).toMatchObject({
+      redFlowers: {
+        balance: {
+          available: fixtureHistory.availableFlowers + 5,
+          cumulative: fixtureHistory.cumulativeFlowers + 5,
+        },
+      },
+    });
+    await expect(
+      getPrisma().taskSubmission.findUniqueOrThrow({ where: { id: submissionId } }),
+    ).resolves.toMatchObject({ flowerValueSnapshot: 5 });
+    await expect(
+      getPrisma().redFlowerLedgerEntry.findFirstOrThrow({
+        where: { sourceId: submissionId, type: "task_confirmed" },
+      }),
+    ).resolves.toMatchObject({
+      deltaAvailable: 5,
+      deltaCumulative: 5,
+    });
+
+    const deleted = await app.inject({
+      method: "POST",
+      url: `/api/parent/history/task-submissions/${submissionId}/delete`,
+      headers: parentHeaders,
+    });
+
+    expect(deleted.statusCode).toBe(200);
+    expect(deleted.json().state).toMatchObject({
+      redFlowers: {
+        balance: {
+          available: fixtureHistory.availableFlowers,
+          cumulative: fixtureHistory.cumulativeFlowers,
+        },
+      },
+    });
+    await expect(
+      getPrisma().taskSubmission.findUnique({ where: { id: submissionId } }),
+    ).resolves.toBeNull();
+    await expect(
+      getPrisma().redFlowerLedgerEntry.findFirst({
+        where: { sourceId: submissionId, type: "task_confirmed" },
+      }),
+    ).resolves.toBeNull();
+    await expect(
+      getPrisma().task.findUniqueOrThrow({ where: { id: taskId } }),
+    ).resolves.toMatchObject({
+      status: "active",
+    });
+
+    await app.close();
+  });
+
+  it("does not reactivate a deleted habit when its completed history is rolled back after kind edits", async () => {
+    const app = buildApp({ prisma: getPrisma() });
+    await app.ready();
+
+    await resetFixture(app);
+    const taskId = await createManagedTask(app, {
+      title: "今天的可变习惯",
+      flowerValue: 2,
+      kind: "repeating",
+    });
+    const submitted = await app.inject({
+      method: "POST",
+      url: "/api/child/task-submissions",
+      headers: familyHeaders,
+      payload: { taskId },
+    });
+
+    expect(submitted.statusCode).toBe(200);
+    const submissionId = submitted.json().submission.id as string;
+
+    const editedTask = await app.inject({
+      method: "POST",
+      url: `/api/parent/tasks/${taskId}`,
+      headers: parentHeaders,
+      payload: {
+        title: "今天的可变目标",
+        flowerValue: 8,
+        kind: "one_time",
+      },
+    });
+    expect(editedTask.statusCode).toBe(200);
+
+    const deletedTask = await app.inject({
+      method: "POST",
+      url: `/api/parent/tasks/${taskId}/delete`,
+      headers: parentHeaders,
+    });
+    expect(deletedTask.statusCode).toBe(200);
+
+    const deletedHistory = await app.inject({
+      method: "POST",
+      url: `/api/parent/history/task-submissions/${submissionId}/delete`,
+      headers: parentHeaders,
+    });
+
+    expect(deletedHistory.statusCode).toBe(200);
+    expect(deletedHistory.json().state).toMatchObject({
+      redFlowers: {
+        balance: {
+          available: fixtureHistory.availableFlowers,
+          cumulative: fixtureHistory.cumulativeFlowers,
+        },
+      },
+    });
+    await expect(
+      getPrisma().task.findUniqueOrThrow({ where: { id: taskId } }),
+    ).resolves.toMatchObject({
+      title: "今天的可变目标",
+      flowerValue: 8,
+      kind: "one_time",
+      status: "archived",
+    });
+
+    await app.close();
+  });
+
+  it("edits and deletes today's wish history as an atomic redemption rollback", async () => {
+    const app = buildApp({ prisma: getPrisma() });
+    await app.ready();
+
+    await resetFixture(app);
+    const wishId = await createManagedWish(app, {
+      title: "今天的误兑心愿",
+      flowerCost: 4,
+      kind: "one_time",
+    });
+    const redeemed = await app.inject({
+      method: "POST",
+      url: "/api/child/wish-redemptions/redeem",
+      headers: familyHeaders,
+      payload: { wishId },
+    });
+
+    expect(redeemed.statusCode).toBe(200);
+    const redemptionId = redeemed.json().redemption.id as string;
+
+    const edited = await app.inject({
+      method: "POST",
+      url: `/api/parent/history/wish-redemptions/${redemptionId}`,
+      headers: parentHeaders,
+      payload: { flowerCost: 7 },
+    });
+
+    expect(edited.statusCode).toBe(200);
+    expect(edited.json().state).toMatchObject({
+      redFlowers: {
+        balance: {
+          available: fixtureHistory.availableFlowers - 7,
+          cumulative: fixtureHistory.cumulativeFlowers,
+        },
+      },
+    });
+    await expect(
+      getPrisma().wishRedemption.findUniqueOrThrow({ where: { id: redemptionId } }),
+    ).resolves.toMatchObject({ flowerCostSnapshot: 7 });
+    await expect(
+      getPrisma().redFlowerLedgerEntry.findFirstOrThrow({
+        where: { sourceId: redemptionId, type: "wish_approved" },
+      }),
+    ).resolves.toMatchObject({
+      deltaAvailable: -7,
+      deltaCumulative: 0,
+    });
+
+    const deleted = await app.inject({
+      method: "POST",
+      url: `/api/parent/history/wish-redemptions/${redemptionId}/delete`,
+      headers: parentHeaders,
+    });
+
+    expect(deleted.statusCode).toBe(200);
+    expect(deleted.json().state).toMatchObject({
+      redFlowers: {
+        balance: {
+          available: fixtureHistory.availableFlowers,
+          cumulative: fixtureHistory.cumulativeFlowers,
+        },
+      },
+    });
+    await expect(
+      getPrisma().wishRedemption.findUnique({ where: { id: redemptionId } }),
+    ).resolves.toBeNull();
+    await expect(
+      getPrisma().redFlowerLedgerEntry.findFirst({
+        where: { sourceId: redemptionId, type: "wish_approved" },
+      }),
+    ).resolves.toBeNull();
+    await expect(
+      getPrisma().wish.findUniqueOrThrow({ where: { id: wishId } }),
+    ).resolves.toMatchObject({
+      status: "active",
+    });
+
+    await app.close();
+  });
+
+  it("rejects history edits for records outside the current business day", async () => {
+    const app = buildApp({ prisma: getPrisma() });
+    await app.ready();
+
+    await resetFixture(app);
+    const taskId = await createManagedTask(app, {
+      title: "昨天的误操作",
+      flowerValue: 2,
+      kind: "repeating",
+    });
+    const submitted = await app.inject({
+      method: "POST",
+      url: "/api/child/task-submissions",
+      headers: familyHeaders,
+      payload: { taskId },
+    });
+    expect(submitted.statusCode).toBe(200);
+    const submissionId = submitted.json().submission.id as string;
+    const yesterday = new Date(Date.now() - 36 * 60 * 60 * 1000);
+
+    await getPrisma().taskSubmission.update({
+      where: { id: submissionId },
+      data: {
+        submittedAt: yesterday,
+        confirmedAt: yesterday,
+      },
+    });
+    await getPrisma().redFlowerLedgerEntry.updateMany({
+      where: { sourceId: submissionId },
+      data: { occurredAt: yesterday },
+    });
+
+    const edited = await app.inject({
+      method: "POST",
+      url: `/api/parent/history/task-submissions/${submissionId}`,
+      headers: parentHeaders,
+      payload: { flowerValue: 5 },
+    });
+    const deleted = await app.inject({
+      method: "POST",
+      url: `/api/parent/history/task-submissions/${submissionId}/delete`,
+      headers: parentHeaders,
+    });
+
+    expect(edited.statusCode).toBe(400);
+    expect(edited.json()).toEqual({
+      error: {
+        code: "HISTORY_RECORD_NOT_EDITABLE",
+        message: "Only today's confirmed task records can be edited.",
+      },
+    });
+    expect(deleted.statusCode).toBe(400);
+    expect(deleted.json()).toEqual({
+      error: {
+        code: "HISTORY_RECORD_NOT_EDITABLE",
+        message: "Only today's confirmed task records can be deleted.",
+      },
+    });
+
+    await app.close();
+  });
+
   it("rejects public binding with default prototype tokens outside test mode", () => {
     process.env.NODE_ENV = "development";
 
