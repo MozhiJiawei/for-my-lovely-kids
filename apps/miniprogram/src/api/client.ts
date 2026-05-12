@@ -268,6 +268,60 @@ export function approveWish(
   });
 }
 
+export function updateHistoryTaskSubmission(
+  config: ApiConfig,
+  submissionId: string,
+  input: { flowerValue: number },
+): Promise<{ state: PrototypeState }> {
+  return request<{ state: PrototypeState }>({
+    config,
+    path: `/api/parent/history/task-submissions/${submissionId}`,
+    method: "POST",
+    tokenKind: "parent",
+    data: input,
+  });
+}
+
+export function deleteHistoryTaskSubmission(
+  config: ApiConfig,
+  submissionId: string,
+): Promise<{ state: PrototypeState }> {
+  return request<{ state: PrototypeState }>({
+    config,
+    path: `/api/parent/history/task-submissions/${submissionId}/delete`,
+    method: "POST",
+    tokenKind: "parent",
+    data: {},
+  });
+}
+
+export function updateHistoryWishRedemption(
+  config: ApiConfig,
+  redemptionId: string,
+  input: { flowerCost: number },
+): Promise<{ state: PrototypeState }> {
+  return request<{ state: PrototypeState }>({
+    config,
+    path: `/api/parent/history/wish-redemptions/${redemptionId}`,
+    method: "POST",
+    tokenKind: "parent",
+    data: input,
+  });
+}
+
+export function deleteHistoryWishRedemption(
+  config: ApiConfig,
+  redemptionId: string,
+): Promise<{ state: PrototypeState }> {
+  return request<{ state: PrototypeState }>({
+    config,
+    path: `/api/parent/history/wish-redemptions/${redemptionId}/delete`,
+    method: "POST",
+    tokenKind: "parent",
+    data: {},
+  });
+}
+
 function request<T>(input: {
   config: ApiConfig;
   path: string;

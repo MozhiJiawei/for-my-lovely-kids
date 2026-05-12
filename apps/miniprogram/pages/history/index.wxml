@@ -152,12 +152,61 @@
   <view class="detail-card">
     <view class="detail-title">当日明细</view>
     <view wx:if="{{details.length === 0}}" class="empty">暂无记录</view>
-    <view wx:for="{{details}}" wx:key="id" class="detail-row">
+    <view wx:for="{{details}}" wx:key="id" class="detail-row {{item.canManage ? 'detail-row-manageable' : ''}}">
       <view class="detail-badge {{item.typeClass}}">{{item.kindText}}</view>
       <view class="detail-main">
         <view class="detail-name">{{item.title}}</view>
         <view class="detail-meta">{{item.meta}}</view>
       </view>
+      <view wx:if="{{item.canManage}}" class="detail-actions">
+        <view
+          class="detail-action"
+          data-id="{{item.id}}"
+          data-type="{{item.recordType}}"
+          bindtap="editDetail"
+        >
+          改花
+        </view>
+        <view
+          class="detail-action danger"
+          data-id="{{item.id}}"
+          data-type="{{item.recordType}}"
+          bindtap="deleteDetail"
+        >
+          删除
+        </view>
+      </view>
     </view>
   </view>
+
+  <view wx:if="{{editPanelOpen}}" class="edit-mask" catchtap="closeEditPanel">
+    <view class="edit-panel" catchtap="noop">
+      <view class="edit-title">修改小红花</view>
+      <view class="edit-record">
+        <view class="edit-record-name">{{editTitle}}</view>
+        <view class="edit-record-kind">{{editKindText}}</view>
+      </view>
+      <view class="edit-field-label">小红花数量</view>
+      <view class="edit-cost-row">
+        <input
+          class="edit-cost-input"
+          type="number"
+          value="{{editFlowerInput}}"
+          bindinput="updateEditFlower"
+          focus="{{editPanelOpen}}"
+        />
+        <view class="edit-stepper">
+          <view class="edit-stepper-button" bindtap="decreaseEditFlower">-</view>
+          <view class="edit-stepper-divider"></view>
+          <view class="edit-stepper-button" bindtap="increaseEditFlower">+</view>
+        </view>
+      </view>
+      <view class="edit-actions">
+        <view class="edit-action secondary" bindtap="closeEditPanel">取消</view>
+        <view class="edit-action primary" bindtap="saveEditPanel">保存</view>
+      </view>
+    </view>
+  </view>
+
+  <parent-control-panel id="parentControl" />
 </view>

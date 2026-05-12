@@ -6,6 +6,7 @@ import {
   confirmTaskSubmission,
   createTask,
   createWish,
+  getBusinessDayKey,
   updateTask,
   updateWish,
   type RedFlowerKind,
@@ -14,6 +15,7 @@ import {
 import type { FastifyInstance } from "fastify";
 
 import { assertPrototypeAuth } from "../auth/prototype-auth";
+import { balanceId } from "../repositories/database";
 import {
   isDuplicateTaskCompletionPersistenceError,
   loadDomainState,
@@ -40,6 +42,14 @@ type ConfirmTasksBody = {
   submissionIds?: string[];
 };
 
+type UpdateHistoryTaskSubmissionBody = {
+  flowerValue?: number;
+};
+
+type UpdateHistoryWishRedemptionBody = {
+  flowerCost?: number;
+};
+
 const flowerKinds: RedFlowerKind[] = ["coral", "sunny", "berry", "sky"];
 
 function chooseFlowerKind(seed: string): RedFlowerKind {
@@ -50,6 +60,32 @@ function chooseFlowerKind(seed: string): RedFlowerKind {
   }
 
   return flowerKinds[Math.abs(hash) % flowerKinds.length]!;
+}
+
+function toIsoString(value: Date | string): string {
+  return value instanceof Date ? value.toISOString() : new Date(value).toISOString();
+}
+
+function isCurrentBusinessDay(value: Date | string | null): boolean {
+  if (!value) {
+    return false;
+  }
+
+  return getBusinessDayKey(toIsoString(value)) === getBusinessDayKey(new Date().toISOString());
+}
+
+function positiveInteger(value: unknown): number | null {
+  const amount = Number(value);
+
+  return Number.isInteger(amount) && amount > 0 ? amount : null;
+}
+
+function sameInstant(left: Date | string | null, right: Date | string | null): boolean {
+  if (!left || !right) {
+    return false;
+  }
+
+  return new Date(left).getTime() === new Date(right).getTime();
 }
 
 export async function registerParentRoutes(app: FastifyInstance): Promise<void> {
@@ -309,6 +345,351 @@ export async function registerParentRoutes(app: FastifyInstance): Promise<void> 
 
     return loadDomainState(app.prisma);
   });
+
+  app.post<{ Params: { id: string }; Body: UpdateHistoryTaskSubmissionBody }>(
+    "/api/parent/history/task-submissions/:id",
+    async (request, reply) => {
+      if (!assertPrototypeAuth(request, reply, "parent")) {
+        return;
+      }
+
+      const flowerValue = positiveInteger(request.body?.flowerValue);
+
+      if (flowerValue === null) {
+        return reply.code(400).send({
+          error: {
+            code: "INVALID_HISTORY_RECORD",
+            message: "flowerValue must be a positive integer.",
+          },
+        });
+      }
+
+      const result = await app.prisma.$transaction(async (tx) => {
+        const submission = await tx.taskSubmission.findUnique({
+          where: { id: request.params.id },
+        });
+
+        if (
+          !submission ||
+          submission.status !== "confirmed" ||
+          !isCurrentBusinessDay(submission.confirmedAt)
+        ) {
+          return {
+            ok: false as const,
+            code: "HISTORY_RECORD_NOT_EDITABLE",
+            message: "Only today's confirmed task records can be edited.",
+          };
+        }
+
+        const ledger = await tx.redFlowerLedgerEntry.findFirst({
+          where: { sourceId: submission.id, type: "task_confirmed" },
+        });
+
+        if (!ledger) {
+          return {
+            ok: false as const,
+            code: "HISTORY_LEDGER_NOT_FOUND",
+            message: "Matching task ledger entry does not exist.",
+          };
+        }
+
+        const delta = flowerValue - submission.flowerValueSnapshot;
+        const now = new Date();
+
+        await tx.taskSubmission.update({
+          where: { id: submission.id },
+          data: { flowerValueSnapshot: flowerValue },
+        });
+        await tx.redFlowerLedgerEntry.update({
+          where: { id: ledger.id },
+          data: {
+            deltaAvailable: flowerValue,
+            deltaCumulative: flowerValue,
+          },
+        });
+        await tx.redFlowerBalance.update({
+          where: { id: balanceId },
+          data: {
+            available: { increment: delta },
+            cumulative: { increment: delta },
+            updatedAt: now,
+          },
+        });
+
+        return { ok: true as const };
+      });
+
+      if (!result.ok) {
+        return reply.code(400).send({
+          error: {
+            code: result.code,
+            message: result.message,
+          },
+        });
+      }
+
+      return { state: await loadDomainState(app.prisma) };
+    },
+  );
+
+  app.post<{ Params: { id: string } }>(
+    "/api/parent/history/task-submissions/:id/delete",
+    async (request, reply) => {
+      if (!assertPrototypeAuth(request, reply, "parent")) {
+        return;
+      }
+
+      const result = await app.prisma.$transaction(async (tx) => {
+        const submission = await tx.taskSubmission.findUnique({
+          where: { id: request.params.id },
+          include: { task: true },
+        });
+
+        if (
+          !submission ||
+          submission.status !== "confirmed" ||
+          !isCurrentBusinessDay(submission.confirmedAt)
+        ) {
+          return {
+            ok: false as const,
+            code: "HISTORY_RECORD_NOT_EDITABLE",
+            message: "Only today's confirmed task records can be deleted.",
+          };
+        }
+
+        const ledger = await tx.redFlowerLedgerEntry.findFirst({
+          where: { sourceId: submission.id, type: "task_confirmed" },
+        });
+
+        if (!ledger) {
+          return {
+            ok: false as const,
+            code: "HISTORY_LEDGER_NOT_FOUND",
+            message: "Matching task ledger entry does not exist.",
+          };
+        }
+
+        const now = new Date();
+
+        await tx.redFlowerBalance.update({
+          where: { id: balanceId },
+          data: {
+            available: { decrement: ledger.deltaAvailable },
+            cumulative: { decrement: ledger.deltaCumulative },
+            updatedAt: now,
+          },
+        });
+        await tx.redFlowerLedgerEntry.delete({ where: { id: ledger.id } });
+        await tx.taskSubmission.delete({ where: { id: submission.id } });
+
+        if (
+          submission.task.kind === "one_time" &&
+          submission.task.status === "archived" &&
+          sameInstant(submission.task.updatedAt, submission.confirmedAt)
+        ) {
+          const remainingConfirmed = await tx.taskSubmission.count({
+            where: {
+              taskId: submission.taskId,
+              status: "confirmed",
+            },
+          });
+
+          if (remainingConfirmed === 0) {
+            await tx.task.update({
+              where: { id: submission.taskId },
+              data: { status: "active", updatedAt: now },
+            });
+          }
+        }
+
+        return { ok: true as const };
+      });
+
+      if (!result.ok) {
+        return reply.code(400).send({
+          error: {
+            code: result.code,
+            message: result.message,
+          },
+        });
+      }
+
+      return { state: await loadDomainState(app.prisma) };
+    },
+  );
+
+  app.post<{ Params: { id: string }; Body: UpdateHistoryWishRedemptionBody }>(
+    "/api/parent/history/wish-redemptions/:id",
+    async (request, reply) => {
+      if (!assertPrototypeAuth(request, reply, "parent")) {
+        return;
+      }
+
+      const flowerCost = positiveInteger(request.body?.flowerCost);
+
+      if (flowerCost === null) {
+        return reply.code(400).send({
+          error: {
+            code: "INVALID_HISTORY_RECORD",
+            message: "flowerCost must be a positive integer.",
+          },
+        });
+      }
+
+      const result = await app.prisma.$transaction(async (tx) => {
+        const redemption = await tx.wishRedemption.findUnique({
+          where: { id: request.params.id },
+        });
+
+        if (
+          !redemption ||
+          redemption.status !== "approved" ||
+          !isCurrentBusinessDay(redemption.approvedAt)
+        ) {
+          return {
+            ok: false as const,
+            code: "HISTORY_RECORD_NOT_EDITABLE",
+            message: "Only today's approved wish records can be edited.",
+          };
+        }
+
+        const ledger = await tx.redFlowerLedgerEntry.findFirst({
+          where: { sourceId: redemption.id, type: "wish_approved" },
+        });
+
+        if (!ledger) {
+          return {
+            ok: false as const,
+            code: "HISTORY_LEDGER_NOT_FOUND",
+            message: "Matching wish ledger entry does not exist.",
+          };
+        }
+
+        const delta = flowerCost - redemption.flowerCostSnapshot;
+        const now = new Date();
+
+        await tx.wishRedemption.update({
+          where: { id: redemption.id },
+          data: { flowerCostSnapshot: flowerCost },
+        });
+        await tx.redFlowerLedgerEntry.update({
+          where: { id: ledger.id },
+          data: {
+            deltaAvailable: -flowerCost,
+            deltaCumulative: 0,
+          },
+        });
+        await tx.redFlowerBalance.update({
+          where: { id: balanceId },
+          data: {
+            available: { decrement: delta },
+            updatedAt: now,
+          },
+        });
+
+        return { ok: true as const };
+      });
+
+      if (!result.ok) {
+        return reply.code(400).send({
+          error: {
+            code: result.code,
+            message: result.message,
+          },
+        });
+      }
+
+      return { state: await loadDomainState(app.prisma) };
+    },
+  );
+
+  app.post<{ Params: { id: string } }>(
+    "/api/parent/history/wish-redemptions/:id/delete",
+    async (request, reply) => {
+      if (!assertPrototypeAuth(request, reply, "parent")) {
+        return;
+      }
+
+      const result = await app.prisma.$transaction(async (tx) => {
+        const redemption = await tx.wishRedemption.findUnique({
+          where: { id: request.params.id },
+          include: { wish: true },
+        });
+
+        if (
+          !redemption ||
+          redemption.status !== "approved" ||
+          !isCurrentBusinessDay(redemption.approvedAt)
+        ) {
+          return {
+            ok: false as const,
+            code: "HISTORY_RECORD_NOT_EDITABLE",
+            message: "Only today's approved wish records can be deleted.",
+          };
+        }
+
+        const ledger = await tx.redFlowerLedgerEntry.findFirst({
+          where: { sourceId: redemption.id, type: "wish_approved" },
+        });
+
+        if (!ledger) {
+          return {
+            ok: false as const,
+            code: "HISTORY_LEDGER_NOT_FOUND",
+            message: "Matching wish ledger entry does not exist.",
+          };
+        }
+
+        const now = new Date();
+
+        await tx.redFlowerBalance.update({
+          where: { id: balanceId },
+          data: {
+            available: { decrement: ledger.deltaAvailable },
+            updatedAt: now,
+          },
+        });
+        await tx.memorialDecoration.deleteMany({
+          where: { wishRedemptionId: redemption.id },
+        });
+        await tx.redFlowerLedgerEntry.delete({ where: { id: ledger.id } });
+        await tx.wishRedemption.delete({ where: { id: redemption.id } });
+
+        if (
+          redemption.wish.kind === "one_time" &&
+          redemption.wish.status === "archived" &&
+          sameInstant(redemption.wish.updatedAt, redemption.approvedAt)
+        ) {
+          const remainingApproved = await tx.wishRedemption.count({
+            where: {
+              wishId: redemption.wishId,
+              status: "approved",
+            },
+          });
+
+          if (remainingApproved === 0) {
+            await tx.wish.update({
+              where: { id: redemption.wishId },
+              data: { status: "active", updatedAt: now },
+            });
+          }
+        }
+
+        return { ok: true as const };
+      });
+
+      if (!result.ok) {
+        return reply.code(400).send({
+          error: {
+            code: result.code,
+            message: result.message,
+          },
+        });
+      }
+
+      return { state: await loadDomainState(app.prisma) };
+    },
+  );
 
   app.post<{ Params: { id: string } }>(
     "/api/parent/wish-redemptions/:id/approve",

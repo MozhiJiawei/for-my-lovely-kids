@@ -1,4 +1,12 @@
-import { loadState, type PrototypeState, type TaskState } from "../../src/api/client";
+import {
+  deleteHistoryTaskSubmission,
+  deleteHistoryWishRedemption,
+  loadState,
+  updateHistoryTaskSubmission,
+  updateHistoryWishRedemption,
+  type PrototypeState,
+  type TaskState,
+} from "../../src/api/client";
 import { getPrototypeApiConfig } from "../../src/config/api";
 
 type CalendarDay = {
@@ -21,10 +29,17 @@ type HabitFilter = {
 
 type DetailItem = {
   id: string;
+  recordType: "task" | "wish";
   title: string;
   meta: string;
   kindText: string;
   typeClass: string;
+  flowerAmount: number;
+  canManage: boolean;
+};
+
+type ParentControlPanel = {
+  request(reason: string): Promise<boolean>;
 };
 
 type HistoryData = {
@@ -47,6 +62,12 @@ type HistoryData = {
   selectedHabitTitle: string;
   selectedHabitId: string;
   details: DetailItem[];
+  editPanelOpen: boolean;
+  editRecordId: string;
+  editRecordType: "task" | "wish";
+  editTitle: string;
+  editKindText: string;
+  editFlowerInput: string;
   message: string;
   loading: boolean;
 };
@@ -74,6 +95,12 @@ const initialData: HistoryData = {
   selectedHabitTitle: "全部习惯",
   selectedHabitId: allHabitsId,
   details: [],
+  editPanelOpen: false,
+  editRecordId: "",
+  editRecordType: "task",
+  editTitle: "",
+  editKindText: "",
+  editFlowerInput: "1",
   message: "正在读取历史。",
   loading: false,
 };
@@ -96,6 +123,12 @@ function keyForLocalDate(date: Date): string {
   const month = `${date.getMonth() + 1}`.padStart(2, "0");
   const day = `${date.getDate()}`.padStart(2, "0");
   return `${year}-${month}-${day}`;
+}
+
+function parsePositiveInteger(value: string): number | null {
+  const amount = Number(value);
+
+  return Number.isInteger(amount) && amount > 0 ? amount : null;
 }
 
 function formatDateLabel(key: string): string {
@@ -338,6 +371,7 @@ function dayWishCount(state: PrototypeState, key: string): number {
 
 function detailItems(state: PrototypeState, key: string, selectedHabitId: string): DetailItem[] {
   const tasksById = new Map(state.taskBook.tasks.map((task) => [task.id, task]));
+  const canManage = key === getBusinessDayKey(new Date().toISOString());
   const taskItems = state.taskBook.submissions
     .filter(
       (submission) =>
@@ -351,10 +385,13 @@ function detailItems(state: PrototypeState, key: string, selectedHabitId: string
 
       return {
         id: submission.id,
+        recordType: "task" as const,
         title: stripTestPrefix(submission.titleSnapshot),
         meta: `+${submission.flowerValueSnapshot} 朵 · ${submission.confirmedAt!.slice(11, 16)}`,
         kindText: taskKind === "one_time" ? "目标达成" : "习惯打卡",
         typeClass: taskKind === "one_time" ? "detail-goal" : "detail-habit",
+        flowerAmount: submission.flowerValueSnapshot,
+        canManage,
       };
     });
 
@@ -371,10 +408,13 @@ function detailItems(state: PrototypeState, key: string, selectedHabitId: string
     )
     .map((redemption) => ({
       id: redemption.id,
+      recordType: "wish" as const,
       title: stripTestPrefix(redemption.titleSnapshot),
       meta: `-${redemption.flowerCostSnapshot} 朵 · ${redemption.approvedAt!.slice(11, 16)}`,
       kindText: "心愿兑换",
       typeClass: "detail-wish",
+      flowerAmount: redemption.flowerCostSnapshot,
+      canManage,
     }));
 
   return [...taskItems, ...wishItems];
@@ -577,5 +617,212 @@ Page({
     this.setData({
       ...buildData(latestState, selectedHabitId, currentMonth, selectedDateKey, habitQuery),
     });
+  },
+
+  async editDetail(event: WechatMiniprogram.TouchEvent) {
+    const record = this.findDetailRecord(event);
+
+    if (!record || !record.canManage) {
+      return;
+    }
+
+    const allowed = await this.requireParentControl("修改历史小红花需要家长确认。");
+
+    if (!allowed) {
+      this.setData({
+        message: "已取消家长验证，历史记录没有修改。",
+      });
+      return;
+    }
+
+    this.setData({
+      editPanelOpen: true,
+      editRecordId: record.id,
+      editRecordType: record.recordType,
+      editTitle: record.title,
+      editKindText: record.kindText,
+      editFlowerInput: String(record.flowerAmount),
+      message: "",
+    });
+  },
+
+  async deleteDetail(event: WechatMiniprogram.TouchEvent) {
+    const record = this.findDetailRecord(event);
+
+    if (!record || !record.canManage) {
+      return;
+    }
+
+    const allowed = await this.requireParentControl("删除历史记录会回滚小红花，需要家长确认。");
+
+    if (!allowed) {
+      this.setData({
+        message: "已取消家长验证，历史记录没有删除。",
+      });
+      return;
+    }
+
+    wx.showModal({
+      title: "删除历史记录",
+      content:
+        record.recordType === "task"
+          ? `删除「${record.title}」后，会回滚这次打卡和小红花。`
+          : `删除「${record.title}」后，会回滚这次心愿兑换和小红花。`,
+      confirmText: "删除",
+      confirmColor: "#e24b45",
+      success: (result) => {
+        if (result.confirm) {
+          void this.deleteHistoryRecord(record);
+        }
+      },
+    });
+  },
+
+  closeEditPanel() {
+    this.setData({
+      editPanelOpen: false,
+      editRecordId: "",
+      editRecordType: "task",
+      editTitle: "",
+      editKindText: "",
+      editFlowerInput: "1",
+    });
+  },
+
+  noop() {
+    return;
+  },
+
+  updateEditFlower(event: WechatMiniprogram.Input) {
+    this.setData({
+      editFlowerInput: event.detail.value,
+    });
+  },
+
+  decreaseEditFlower() {
+    const amount = parsePositiveInteger(this.data.editFlowerInput) ?? 1;
+
+    this.setData({
+      editFlowerInput: String(Math.max(1, amount - 1)),
+    });
+  },
+
+  increaseEditFlower() {
+    const amount = parsePositiveInteger(this.data.editFlowerInput) ?? 0;
+
+    this.setData({
+      editFlowerInput: String(amount + 1),
+    });
+  },
+
+  saveEditPanel() {
+    const record = this.data.details.find(
+      (candidate) =>
+        candidate.id === this.data.editRecordId &&
+        candidate.recordType === this.data.editRecordType,
+    );
+    const amount = parsePositiveInteger(this.data.editFlowerInput);
+
+    if (!record || !record.canManage) {
+      this.closeEditPanel();
+      return;
+    }
+
+    if (amount === null) {
+      this.setData({
+        message: "请输入正整数小红花。",
+      });
+      return;
+    }
+
+    this.closeEditPanel();
+    void this.updateHistoryRecord(record, amount);
+  },
+
+  findDetailRecord(event: WechatMiniprogram.TouchEvent): DetailItem | undefined {
+    const id = String(event.currentTarget.dataset.id ?? "");
+    const recordType = String(event.currentTarget.dataset.type ?? "");
+
+    return this.data.details.find(
+      (record) => record.id === id && record.recordType === recordType,
+    );
+  },
+
+  async updateHistoryRecord(record: DetailItem, flowerAmount: number) {
+    this.setData({
+      loading: true,
+      message: "正在修改历史记录。",
+    });
+
+    try {
+      const response =
+        record.recordType === "task"
+          ? await updateHistoryTaskSubmission(getPrototypeApiConfig(), record.id, {
+              flowerValue: flowerAmount,
+            })
+          : await updateHistoryWishRedemption(getPrototypeApiConfig(), record.id, {
+              flowerCost: flowerAmount,
+            });
+
+      latestState = response.state;
+      this.setData({
+        ...buildData(
+          response.state,
+          this.data.selectedHabitId,
+          currentMonth,
+          selectedDateKey,
+          this.data.habitQuery,
+        ),
+        loading: false,
+        message: "历史记录已修改。",
+      });
+    } catch (error) {
+      this.setData({
+        loading: false,
+        message: error instanceof Error ? error.message : "修改失败。",
+      });
+    }
+  },
+
+  async deleteHistoryRecord(record: DetailItem) {
+    this.setData({
+      loading: true,
+      message: "正在删除历史记录。",
+    });
+
+    try {
+      const response =
+        record.recordType === "task"
+          ? await deleteHistoryTaskSubmission(getPrototypeApiConfig(), record.id)
+          : await deleteHistoryWishRedemption(getPrototypeApiConfig(), record.id);
+
+      latestState = response.state;
+      this.setData({
+        ...buildData(
+          response.state,
+          this.data.selectedHabitId,
+          currentMonth,
+          selectedDateKey,
+          this.data.habitQuery,
+        ),
+        loading: false,
+        message: "历史记录已删除并回滚。",
+      });
+    } catch (error) {
+      this.setData({
+        loading: false,
+        message: error instanceof Error ? error.message : "删除失败。",
+      });
+    }
+  },
+
+  requireParentControl(reason: string): Promise<boolean> {
+    const panel = this.selectComponent("#parentControl") as unknown as ParentControlPanel | null;
+
+    if (!panel) {
+      return Promise.resolve(false);
+    }
+
+    return panel.request(reason);
   },
 });
