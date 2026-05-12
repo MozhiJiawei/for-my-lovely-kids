@@ -13,6 +13,7 @@ RUN_PRE_DEPLOY_BACKUP=${RUN_PRE_DEPLOY_BACKUP:-1}
 FORCE_REBUILD=${FORCE_REBUILD:-0}
 FORCE_RECREATE=${FORCE_RECREATE:-0}
 ALLOW_DESTRUCTIVE_MIGRATIONS=${ALLOW_DESTRUCTIVE_MIGRATIONS:-0}
+OBJECT_STORAGE_ENV=${OBJECT_STORAGE_ENV:-/etc/red-flower-garden/object-storage.env}
 
 cd "$APP_DIR"
 
@@ -32,6 +33,11 @@ FAMILY_ACCESS_TOKEN=$family_token
 PARENT_ACCESS_TOKEN=$parent_token
 EOF
   chmod 600 deploy/api.env
+fi
+
+api_env_files=(--env-file "$APP_DIR/deploy/api.env")
+if [ -f "$OBJECT_STORAGE_ENV" ]; then
+  api_env_files+=(--env-file "$OBJECT_STORAGE_ENV")
 fi
 
 image_exists() {
@@ -91,7 +97,7 @@ database_exists() {
 run_migration_command() {
   local command=$1
   docker run --rm \
-    --env-file "$APP_DIR/deploy/api.env" \
+    "${api_env_files[@]}" \
     -e NODE_ENV=production \
     -e "BUILD_ID=$git_sha" \
     -e "PRE_DEPLOY_BACKUP_VERIFIED=$pre_deploy_backup_verified" \
@@ -214,7 +220,7 @@ rollback_previous_container() {
 if ! docker run -d \
   --name "$CONTAINER_NAME" \
   --restart unless-stopped \
-  --env-file "$APP_DIR/deploy/api.env" \
+  "${api_env_files[@]}" \
   -e NODE_ENV=production \
   -e HOST=0.0.0.0 \
   -e "PORT=$CONTAINER_PORT" \
