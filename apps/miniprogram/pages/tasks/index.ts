@@ -15,12 +15,15 @@ type TaskListItem = {
   statusText: string;
   completedToday: boolean;
   deleteOpen: boolean;
+  selected: boolean;
 };
 
 type TasksData = {
   tasks: TaskListItem[];
   habits: TaskListItem[];
   goals: TaskListItem[];
+  backfillSelecting: boolean;
+  selectedHabitCount: number;
   message: string;
   loading: boolean;
 };
@@ -29,6 +32,8 @@ const initialData: TasksData = {
   tasks: [],
   habits: [],
   goals: [],
+  backfillSelecting: false,
+  selectedHabitCount: 0,
   message: "把每天的小习惯和一次性目标放在这里。",
   loading: false,
 };
@@ -36,6 +41,7 @@ const initialData: TasksData = {
 let latestRefreshRequest = 0;
 let touchStartX = 0;
 let touchTaskId = "";
+let selectedHabitIds = new Set<string>();
 
 function todayKey(): string {
   return getBusinessDayKey(new Date().toISOString());
@@ -75,6 +81,7 @@ function activeTasks(state: PrototypeState, currentTasks: TaskListItem[]): TaskL
       statusText: task.kind === "one_time" ? "待达成" : "待完成",
       completedToday: confirmedTodayTaskIds.has(task.id),
       deleteOpen: openDeleteIds.has(task.id),
+      selected: selectedHabitIds.has(task.id),
     }));
 }
 
@@ -83,11 +90,16 @@ function deriveDataFromState(
   currentTasks: TaskListItem[],
 ): Partial<TasksData> {
   const tasks = activeTasks(state, currentTasks);
+  const validHabitIds = new Set(
+    tasks.filter((task) => task.kind === "repeating").map((task) => task.id),
+  );
+  selectedHabitIds = new Set(Array.from(selectedHabitIds).filter((id) => validHabitIds.has(id)));
 
   return {
     tasks,
     habits: tasks.filter((task) => task.kind === "repeating"),
     goals: tasks.filter((task) => task.kind === "one_time"),
+    selectedHabitCount: selectedHabitIds.size,
   };
 }
 
@@ -204,16 +216,114 @@ Page({
     }
 
     wx.navigateTo({
-      url: `/pages/tasks/backfill?id=${encodeURIComponent(taskId)}`,
+      url: `/pages/tasks/backfill?ids=${encodeURIComponent(taskId)}`,
+    });
+  },
+
+  startBatchBackfill() {
+    selectedHabitIds = new Set();
+    this.setData({
+      backfillSelecting: true,
+      selectedHabitCount: 0,
+      tasks: this.data.tasks.map((task) => ({ ...task, selected: false, deleteOpen: false })),
+      habits: this.data.habits.map((task) => ({ ...task, selected: false, deleteOpen: false })),
+      goals: this.data.goals.map((task) => ({ ...task, selected: false, deleteOpen: false })),
+      message: "选择要一起补录的习惯。",
+    });
+  },
+
+  cancelBatchBackfill() {
+    selectedHabitIds = new Set();
+    this.setData({
+      backfillSelecting: false,
+      selectedHabitCount: 0,
+      tasks: this.data.tasks.map((task) => ({ ...task, selected: false })),
+      habits: this.data.habits.map((task) => ({ ...task, selected: false })),
+      goals: this.data.goals.map((task) => ({ ...task, selected: false })),
+      message: "习惯和目标已经准备好。",
+    });
+  },
+
+  toggleHabitSelection(event: WechatMiniprogram.TouchEvent) {
+    if (!this.data.backfillSelecting) {
+      return;
+    }
+
+    const taskId = String(event.currentTarget.dataset.id ?? "");
+
+    if (!taskId || !this.data.habits.some((habit) => habit.id === taskId)) {
+      return;
+    }
+
+    if (selectedHabitIds.has(taskId)) {
+      selectedHabitIds.delete(taskId);
+    } else {
+      selectedHabitIds.add(taskId);
+    }
+
+    this.setData({
+      tasks: this.data.tasks.map((task) => ({
+        ...task,
+        selected: selectedHabitIds.has(task.id),
+      })),
+      habits: this.data.habits.map((task) => ({
+        ...task,
+        selected: selectedHabitIds.has(task.id),
+      })),
+      selectedHabitCount: selectedHabitIds.size,
+      message:
+        selectedHabitIds.size > 0
+          ? `已选择 ${selectedHabitIds.size} 个习惯。`
+          : "选择要一起补录的习惯。",
+    });
+  },
+
+  async openBatchBackfill() {
+    const habitIds = Array.from(selectedHabitIds);
+
+    if (habitIds.length === 0) {
+      this.setData({
+        message: "请先选择要补录的习惯。",
+      });
+      return;
+    }
+
+    const allowed = await this.requireParentControl("批量补录习惯打卡需要家长确认。");
+
+    if (!allowed) {
+      this.setData({
+        message: "已取消家长确认，习惯打卡没有补录。",
+      });
+      return;
+    }
+
+    selectedHabitIds = new Set();
+    this.setData({
+      backfillSelecting: false,
+      selectedHabitCount: 0,
+      tasks: this.data.tasks.map((task) => ({ ...task, selected: false })),
+      habits: this.data.habits.map((task) => ({ ...task, selected: false })),
+    });
+
+    wx.navigateTo({
+      url: `/pages/tasks/backfill?ids=${encodeURIComponent(habitIds.join(","))}`,
     });
   },
 
   touchTaskStart(event: WechatMiniprogram.TouchEvent) {
+    if (this.data.backfillSelecting) {
+      return;
+    }
+
     touchStartX = event.touches[0]?.clientX ?? 0;
     touchTaskId = String(event.currentTarget.dataset.id ?? "");
   },
 
   touchTaskEnd(event: WechatMiniprogram.TouchEvent) {
+    if (this.data.backfillSelecting) {
+      return;
+    }
+
     const endX = event.changedTouches[0]?.clientX ?? touchStartX;
     const deltaX = endX - touchStartX;
 

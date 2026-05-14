@@ -8,7 +8,8 @@
     <view class="eyebrow">习惯补录</view>
     <view class="title">{{title}}</view>
     <view class="meta-row">
-      <view class="meta-pill">{{flowerValue}} 朵</view>
+      <view wx:if="{{habitCount > 1}}" class="meta-pill">{{habitCount}} 个习惯</view>
+      <view class="meta-pill">每天 {{flowerValue}} 朵</view>
       <view class="meta-pill">最近 1 个月</view>
     </view>
     <view class="message">{{message}}</view>
@@ -78,7 +79,7 @@
       <view class="hint-panel">
         <view class="hint-title">补录范围</view>
         <view class="hint-line">可多选，只能补录 {{minDate}} 到 {{maxDate}} 之间的习惯打卡。</view>
-        <view class="hint-line">黄色日期已经打卡，不能重复补录；范围外日期会隐藏或置灰。</view>
+        <view class="hint-line">黄色日期表示至少一个所选习惯已经打卡，不能重复补录；范围外日期会隐藏或置灰。</view>
       </view>
 
       <button class="save-button" loading="{{loading}}" bindtap="saveBackfill">保存补录</button>

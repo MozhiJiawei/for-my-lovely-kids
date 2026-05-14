@@ -273,6 +273,19 @@ export function backfillHabitCheckin(
   });
 }
 
+export function backfillHabitCheckins(
+  config: ApiConfig,
+  input: { taskIds: string[]; completionDates: string[] },
+): Promise<{ submissions: TaskSubmissionState[]; state: PrototypeState }> {
+  return request<{ submissions: TaskSubmissionState[]; state: PrototypeState }>({
+    config,
+    path: "/api/parent/habit-checkins/backfill-batch",
+    method: "POST",
+    tokenKind: "parent",
+    data: input,
+  });
+}
+
 export function requestWish(config: ApiConfig, wishId: string): Promise<{ state: PrototypeState }> {
   return request<{ state: PrototypeState }>({
     config,

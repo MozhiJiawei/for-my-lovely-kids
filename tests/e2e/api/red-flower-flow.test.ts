@@ -1181,6 +1181,120 @@ describe("red flower API flow", () => {
     await app.close();
   });
 
+  it("lets parents backfill multiple habits through the batch endpoint", async () => {
+    const app = buildApp({ prisma: getPrisma() });
+    await app.ready();
+
+    await app.inject({
+      method: "POST",
+      url: "/__test/reset",
+    });
+    const firstHabitId = await createManagedTask(app, {
+      title: "补录晨读",
+      flowerValue: 2,
+      kind: "repeating",
+    });
+    const secondHabitId = await createManagedTask(app, {
+      title: "补录跳绳",
+      flowerValue: 3,
+      kind: "repeating",
+    });
+    const completionDates = [daysAgoBusinessKey(3), daysAgoBusinessKey(2)];
+
+    const response = await app.inject({
+      method: "POST",
+      url: "/api/parent/habit-checkins/backfill-batch",
+      headers: parentHeaders,
+      payload: {
+        taskIds: [firstHabitId, secondHabitId],
+        completionDates,
+      },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json().submissions).toHaveLength(4);
+    expect(response.json()).toMatchObject({
+      state: {
+        redFlowers: {
+          balance: {
+            available: fixtureHistory.availableFlowers + 10,
+            cumulative: fixtureHistory.cumulativeFlowers + 10,
+          },
+        },
+      },
+    });
+    await expect(
+      getPrisma().taskSubmission.count({
+        where: {
+          taskId: { in: [firstHabitId, secondHabitId] },
+          status: "confirmed",
+        },
+      }),
+    ).resolves.toBe(4);
+
+    await app.close();
+  });
+
+  it("rejects batch backfill when any selected habit has already checked in on a date", async () => {
+    const app = buildApp({ prisma: getPrisma() });
+    await app.ready();
+
+    await app.inject({
+      method: "POST",
+      url: "/__test/reset",
+    });
+    const firstHabitId = await createManagedTask(app, {
+      title: "已补录晨读",
+      flowerValue: 2,
+      kind: "repeating",
+    });
+    const secondHabitId = await createManagedTask(app, {
+      title: "还没补录跳绳",
+      flowerValue: 3,
+      kind: "repeating",
+    });
+    const completionDate = daysAgoBusinessKey(2);
+
+    const first = await app.inject({
+      method: "POST",
+      url: "/api/parent/habit-checkins/backfill",
+      headers: parentHeaders,
+      payload: {
+        taskId: firstHabitId,
+        completionDate,
+      },
+    });
+    expect(first.statusCode).toBe(200);
+
+    const batch = await app.inject({
+      method: "POST",
+      url: "/api/parent/habit-checkins/backfill-batch",
+      headers: parentHeaders,
+      payload: {
+        taskIds: [firstHabitId, secondHabitId],
+        completionDates: [completionDate],
+      },
+    });
+
+    expect(batch.statusCode).toBe(400);
+    expect(batch.json()).toEqual({
+      error: {
+        code: "TASK_ALREADY_CONFIRMED",
+        message: "Task has already been completed for this day.",
+      },
+    });
+    await expect(
+      getPrisma().taskSubmission.count({
+        where: {
+          taskId: { in: [firstHabitId, secondHabitId] },
+          status: "confirmed",
+        },
+      }),
+    ).resolves.toBe(1);
+
+    await app.close();
+  });
+
   it("rejects invalid habit check-in backfills without partial rewards", async () => {
     const app = buildApp({ prisma: getPrisma() });
     await app.ready();

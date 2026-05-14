@@ -25,25 +25,35 @@
     <view wx:if="{{tasks.length === 0}}" class="empty">还没有习惯或目标。</view>
     <view wx:else>
       <view class="task-group">
-        <view class="group-title">习惯</view>
+        <view class="group-heading">
+          <view class="group-title">习惯</view>
+          <view wx:if="{{!backfillSelecting}}" class="batch-link" catchtap="startBatchBackfill">
+            批量补录
+          </view>
+          <view wx:else class="batch-actions">
+            <view class="batch-link muted" catchtap="cancelBatchBackfill">取消</view>
+            <view class="batch-link" catchtap="openBatchBackfill">下一步 {{selectedHabitCount}}</view>
+          </view>
+        </view>
         <view wx:if="{{habits.length === 0}}" class="group-empty">还没有习惯。</view>
         <view wx:for="{{habits}}" wx:key="id" class="swipe-row">
           <view class="delete-action" data-id="{{item.id}}" catchtap="deleteTask">删除</view>
           <view
-            class="task-card {{item.deleteOpen ? 'task-card-open' : ''}}"
+            class="task-card {{backfillSelecting ? 'task-card-selecting' : ''}} {{item.deleteOpen ? 'task-card-open' : ''}} {{item.selected ? 'task-card-selected' : ''}}"
             data-id="{{item.id}}"
-            catchtap="noop"
+            catchtap="toggleHabitSelection"
             bindtouchstart="touchTaskStart"
             bindtouchend="touchTaskEnd"
           >
-            <view class="task-icon">习</view>
+            <view wx:if="{{backfillSelecting}}" class="select-check">{{item.selected ? "✓" : ""}}</view>
+            <view wx:else class="task-icon">习</view>
             <view class="task-main">
               <view class="task-title">{{item.title}}</view>
               <view class="task-meta">
                 {{item.flowerValue}} 朵 · 习惯 · {{item.completedToday ? "今日已完成" : item.statusText}}
               </view>
             </view>
-            <view class="task-actions">
+            <view wx:if="{{!backfillSelecting}}" class="task-actions">
               <view class="backfill-action" data-id="{{item.id}}" catchtap="openBackfill">补录</view>
               <view class="icon-action" data-id="{{item.id}}" catchtap="editTask">编辑</view>
             </view>

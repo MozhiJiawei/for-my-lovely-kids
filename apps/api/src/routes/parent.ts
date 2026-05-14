@@ -8,6 +8,7 @@ import {
   createWish,
   getBusinessDayKey,
   submitTask,
+  type TaskSubmission,
   updateTask,
   updateWish,
   type RedFlowerKind,
@@ -19,6 +20,7 @@ import { assertPrototypeAuth } from "../auth/prototype-auth";
 import { balanceId } from "../repositories/database";
 import {
   isDuplicateTaskCompletionPersistenceError,
+  type DomainState,
   loadDomainState,
   saveTaskBook,
   saveTaskBookAndRedFlowers,
@@ -50,6 +52,11 @@ type ConfirmTasksBody = {
 type BackfillHabitCheckinBody = {
   taskId?: string;
   completionDate?: string;
+};
+
+type BackfillHabitCheckinsBody = {
+  taskIds?: string[];
+  completionDates?: string[];
 };
 
 type UpdateHistoryTaskSubmissionBody = {
@@ -144,6 +151,52 @@ function sameInstant(left: Date | string | null, right: Date | string | null): b
   }
 
   return new Date(left).getTime() === new Date(right).getTime();
+}
+
+function isHabitAlreadyCompletedOnDate(
+  state: Pick<DomainState, "taskBook">,
+  taskId: string,
+  completionDate: string,
+): boolean {
+  return state.taskBook.submissions.some(
+    (submission) =>
+      submission.taskId === taskId &&
+      submission.status === "confirmed" &&
+      submission.confirmedAt !== null &&
+      getBusinessDayKey(submission.confirmedAt) === completionDate,
+  );
+}
+
+function validateBackfillDates(completionDates: string[]): {
+  ok: true;
+  values: Array<{ completionDate: string; completedAt: string }>;
+} | {
+  ok: false;
+  error: {
+    code: string;
+    message: string;
+  };
+} {
+  const uniqueDates = Array.from(new Set(completionDates));
+  const values: Array<{ completionDate: string; completedAt: string }> = [];
+
+  for (const completionDate of uniqueDates) {
+    const completedAt = dateKeyToCompletionIso(completionDate);
+
+    if (!completedAt || !isWithinBackfillWindow(completionDate)) {
+      return {
+        ok: false,
+        error: {
+          code: "HABIT_BACKFILL_DATE_OUT_OF_RANGE",
+          message: "Habit check-ins can only be backfilled within the last month.",
+        },
+      };
+    }
+
+    values.push({ completionDate, completedAt });
+  }
+
+  return { ok: true, values };
 }
 
 export async function registerParentRoutes(app: FastifyInstance): Promise<void> {
@@ -531,6 +584,152 @@ export async function registerParentRoutes(app: FastifyInstance): Promise<void> 
 
       return {
         submission: result.value.submission,
+        state: await loadDomainState(app.prisma),
+      };
+    },
+  );
+
+  app.post<{ Body: BackfillHabitCheckinsBody }>(
+    "/api/parent/habit-checkins/backfill-batch",
+    async (request, reply) => {
+      if (!assertPrototypeAuth(request, reply, "parent")) {
+        return;
+      }
+
+      const rawTaskIds = request.body?.taskIds;
+      const rawCompletionDates = request.body?.completionDates;
+
+      if (
+        !Array.isArray(rawTaskIds) ||
+        !Array.isArray(rawCompletionDates) ||
+        rawTaskIds.some((taskId) => typeof taskId !== "string" || taskId.trim() === "") ||
+        rawCompletionDates.some((date) => typeof date !== "string" || date.trim() === "")
+      ) {
+        return reply.code(400).send({
+          error: {
+            code: "INVALID_REQUEST",
+            message: "taskIds and completionDates are required.",
+          },
+        });
+      }
+
+      const taskIds = Array.from(new Set(rawTaskIds.map((taskId) => taskId.trim())));
+      const completionDates = rawCompletionDates.map((date) => date.trim());
+
+      if (taskIds.length === 0 || completionDates.length === 0) {
+        return reply.code(400).send({
+          error: {
+            code: "INVALID_REQUEST",
+            message: "taskIds and completionDates are required.",
+          },
+        });
+      }
+
+      const validatedDates = validateBackfillDates(completionDates);
+
+      if (!validatedDates.ok) {
+        return reply.code(400).send({ error: validatedDates.error });
+      }
+
+      let result;
+
+      try {
+        result = await app.prisma.$transaction(async (tx) => {
+          let state = await loadDomainState(tx);
+          const submissions: TaskSubmission[] = [];
+
+          for (const taskId of taskIds) {
+            const task = state.taskBook.tasks.find((candidate) => candidate.id === taskId);
+
+            if (!task || task.kind !== "repeating" || task.status === "archived") {
+              return {
+                ok: false as const,
+                error: {
+                  code: "HABIT_NOT_FOUND",
+                  message: "Habit does not exist.",
+                },
+              };
+            }
+          }
+
+          for (const { completionDate } of validatedDates.values) {
+            for (const taskId of taskIds) {
+              if (isHabitAlreadyCompletedOnDate(state, taskId, completionDate)) {
+                return {
+                  ok: false as const,
+                  error: {
+                    code: "TASK_ALREADY_CONFIRMED",
+                    message: "Task has already been completed for this day.",
+                  },
+                };
+              }
+            }
+          }
+
+          for (const { completedAt } of validatedDates.values) {
+            for (const taskId of taskIds) {
+              const submitted = submitTask(state.taskBook, {
+                taskId,
+                submissionId: randomUUID(),
+                submittedAt: completedAt,
+              });
+
+              if (!submitted.ok) {
+                return submitted;
+              }
+
+              const confirmed = confirmTaskSubmission(submitted.value.taskBook, state.redFlowers, {
+                submissionId: submitted.value.submission.id,
+                confirmedAt: completedAt,
+                ledgerEntryId: randomUUID(),
+                flowerKind: chooseFlowerKind(submitted.value.submission.id),
+              });
+
+              if (!confirmed.ok) {
+                return confirmed;
+              }
+
+              state = {
+                ...state,
+                taskBook: confirmed.value.taskBook,
+                redFlowers: confirmed.value.redFlowers,
+              };
+              submissions.push(confirmed.value.submission);
+            }
+          }
+
+          await saveTaskBookAndRedFlowers(tx, {
+            taskBook: state.taskBook,
+            redFlowers: state.redFlowers,
+          });
+
+          return {
+            ok: true as const,
+            value: {
+              state,
+              submissions,
+            },
+          };
+        });
+      } catch (error) {
+        if (isDuplicateTaskCompletionPersistenceError(error)) {
+          return reply.code(400).send({
+            error: {
+              code: "TASK_ALREADY_CONFIRMED",
+              message: "Task has already been completed for this day.",
+            },
+          });
+        }
+
+        throw error;
+      }
+
+      if (!result.ok) {
+        return reply.code(400).send({ error: result.error });
+      }
+
+      return {
+        submissions: result.value.submissions,
         state: await loadDomainState(app.prisma),
       };
     },

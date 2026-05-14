@@ -1,4 +1,5 @@
 import {
+  backfillHabitCheckins,
   backfillHabitCheckin,
   loadState,
   type PrototypeState,
@@ -22,8 +23,10 @@ type CalendarDay = {
 
 type BackfillData = {
   taskId: string;
+  taskIds: string[];
   title: string;
   flowerValue: number;
+  habitCount: number;
   selectedDateKeys: string[];
   selectedCount: number;
   selectedFlowerTotal: number;
@@ -45,8 +48,10 @@ type PreviousTaskPage = {
 
 const initialData: BackfillData = {
   taskId: "",
+  taskIds: [],
   title: "习惯打卡",
   flowerValue: 0,
+  habitCount: 0,
   selectedDateKeys: [],
   selectedCount: 0,
   selectedFlowerTotal: 0,
@@ -246,11 +251,32 @@ function completedDateKeysForHabit(state: PrototypeState, taskId: string): strin
   ).sort();
 }
 
+function completedDateKeysForHabits(state: PrototypeState, taskIds: string[]): string[] {
+  const taskIdSet = new Set(taskIds);
+
+  return Array.from(
+    new Set(
+      state.taskBook.submissions
+        .filter(
+          (submission) =>
+            taskIdSet.has(submission.taskId) &&
+            submission.status === "confirmed" &&
+            submission.confirmedAt !== null,
+        )
+        .map((submission) => getBusinessDayKey(submission.confirmedAt!)),
+    ),
+  ).sort();
+}
+
 Page({
   data: initialData,
 
   onLoad(options: Record<string, string | undefined>) {
-    const taskId = decodeURIComponent(options.id ?? "");
+    const taskIds = decodeURIComponent(options.ids ?? options.id ?? "")
+      .split(",")
+      .map((id) => id.trim())
+      .filter(Boolean);
+    const taskId = taskIds[0] ?? "";
     const maxDate = previousBusinessDayKey(todayKey());
     const minDate = oneMonthAgoKey(maxDate);
 
@@ -262,6 +288,7 @@ Page({
     );
     this.setData({
       taskId,
+      taskIds,
       minDate,
       maxDate,
       ...selectionData(minDate, maxDate, currentMonth, 0, [], []),
@@ -307,9 +334,15 @@ Page({
         return;
       }
 
-      const task = taskFromState(state, taskId);
+      const taskIds = this.data.taskIds.length > 0 ? this.data.taskIds : [taskId];
+      const habits = taskIds
+        .map((id) => taskFromState(state, id))
+        .filter((task): task is TaskState => Boolean(task));
 
-      if (!task || task.kind !== "repeating" || task.status === "archived") {
+      if (
+        habits.length !== taskIds.length ||
+        habits.some((task) => task.kind !== "repeating" || task.status === "archived")
+      ) {
         this.setData({
           loading: false,
           message: "没有找到可以补录的习惯。",
@@ -317,18 +350,26 @@ Page({
         return;
       }
 
-      const completedDateKeys = completedDateKeysForHabit(state, taskId);
+      const completedDateKeys =
+        taskIds.length === 1
+          ? completedDateKeysForHabit(state, taskIds[0]!)
+          : completedDateKeysForHabits(state, taskIds);
+      const flowerValue = habits.reduce((sum, task) => sum + task.flowerValue, 0);
 
       this.setData({
         loading: false,
-        title: stripTestPrefix(task.title),
-        flowerValue: task.flowerValue,
+        title:
+          habits.length === 1
+            ? stripTestPrefix(habits[0]!.title)
+            : `${habits.length} 个习惯批量补录`,
+        flowerValue,
+        habitCount: habits.length,
         completedDateKeys,
         ...selectionData(
           this.data.minDate,
           this.data.maxDate,
           currentMonth,
-          task.flowerValue,
+          flowerValue,
           [],
           completedDateKeys,
         ),
@@ -443,12 +484,20 @@ Page({
     try {
       let latestState: PrototypeState | null = null;
 
-      for (const completionDate of this.data.selectedDateKeys) {
-        const response = await backfillHabitCheckin(getPrototypeApiConfig(), {
-          taskId: this.data.taskId,
-          completionDate,
+      if (this.data.taskIds.length > 1) {
+        const response = await backfillHabitCheckins(getPrototypeApiConfig(), {
+          taskIds: this.data.taskIds,
+          completionDates: this.data.selectedDateKeys,
         });
         latestState = response.state;
+      } else {
+        for (const completionDate of this.data.selectedDateKeys) {
+          const response = await backfillHabitCheckin(getPrototypeApiConfig(), {
+            taskId: this.data.taskId,
+            completionDate,
+          });
+          latestState = response.state;
+        }
       }
 
       const pages = getCurrentPages();
