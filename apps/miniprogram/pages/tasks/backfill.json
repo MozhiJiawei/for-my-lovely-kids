@@ -1,0 +1,6 @@
+{
+  "navigationBarTitleText": "补录习惯",
+  "usingComponents": {
+    "parent-control-panel": "../../components/parent-control-panel/index"
+  }
+}

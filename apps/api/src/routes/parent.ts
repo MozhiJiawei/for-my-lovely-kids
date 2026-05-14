@@ -7,6 +7,7 @@ import {
   createTask,
   createWish,
   getBusinessDayKey,
+  submitTask,
   updateTask,
   updateWish,
   type RedFlowerKind,
@@ -46,6 +47,11 @@ type ConfirmTasksBody = {
   submissionIds?: string[];
 };
 
+type BackfillHabitCheckinBody = {
+  taskId?: string;
+  completionDate?: string;
+};
+
 type UpdateHistoryTaskSubmissionBody = {
   flowerValue?: number;
 };
@@ -81,6 +87,49 @@ function isCurrentBusinessDay(value: Date | string | null): boolean {
   }
 
   return getBusinessDayKey(toIsoString(value)) === getBusinessDayKey(new Date().toISOString());
+}
+
+function dateKeyToCompletionIso(value: string): string | null {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    return null;
+  }
+
+  const completionIso = `${value}T04:00:00.000Z`;
+
+  return getBusinessDayKey(completionIso) === value ? completionIso : null;
+}
+
+function oneMonthAgoKey(todayKey: string): string {
+  const [yearText, monthText, dayText] = todayKey.split("-");
+  const year = Number(yearText);
+  const month = Number(monthText);
+  const day = Number(dayText);
+  const targetMonthIndex = month - 2;
+  const targetMonthFirst = new Date(Date.UTC(year, targetMonthIndex, 1));
+  const targetYear = targetMonthFirst.getUTCFullYear();
+  const targetMonth = targetMonthFirst.getUTCMonth();
+  const daysInTargetMonth = new Date(Date.UTC(targetYear, targetMonth + 1, 0)).getUTCDate();
+  const targetDay = Math.min(day, daysInTargetMonth);
+
+  return [
+    targetYear,
+    `${targetMonth + 1}`.padStart(2, "0"),
+    `${targetDay}`.padStart(2, "0"),
+  ].join("-");
+}
+
+function previousBusinessDayKey(key: string): string {
+  const date = new Date(`${key}T00:00:00.000Z`);
+  date.setUTCDate(date.getUTCDate() - 1);
+
+  return date.toISOString().slice(0, 10);
+}
+
+function isWithinBackfillWindow(completionDate: string): boolean {
+  const todayKey = getBusinessDayKey(new Date().toISOString());
+  const latestBackfillKey = previousBusinessDayKey(todayKey);
+
+  return completionDate >= oneMonthAgoKey(todayKey) && completionDate <= latestBackfillKey;
 }
 
 function positiveInteger(value: unknown): number | null {
@@ -387,6 +436,105 @@ export async function registerParentRoutes(app: FastifyInstance): Promise<void> 
 
     return loadDomainState(app.prisma);
   });
+
+  app.post<{ Body: BackfillHabitCheckinBody }>(
+    "/api/parent/habit-checkins/backfill",
+    async (request, reply) => {
+      if (!assertPrototypeAuth(request, reply, "parent")) {
+        return;
+      }
+
+      const taskId = request.body?.taskId;
+      const completionDate = request.body?.completionDate;
+
+      if (!taskId || !completionDate) {
+        return reply.code(400).send({
+          error: {
+            code: "INVALID_REQUEST",
+            message: "taskId and completionDate are required.",
+          },
+        });
+      }
+
+      const completedAt = dateKeyToCompletionIso(completionDate);
+
+      if (!completedAt || !isWithinBackfillWindow(completionDate)) {
+        return reply.code(400).send({
+          error: {
+            code: "HABIT_BACKFILL_DATE_OUT_OF_RANGE",
+            message: "Habit check-ins can only be backfilled within the last month.",
+          },
+        });
+      }
+
+      let result;
+
+      try {
+        result = await app.prisma.$transaction(async (tx) => {
+          const state = await loadDomainState(tx);
+          const task = state.taskBook.tasks.find((candidate) => candidate.id === taskId);
+
+          if (!task || task.kind !== "repeating" || task.status === "archived") {
+            return {
+              ok: false as const,
+              error: {
+                code: "HABIT_NOT_FOUND",
+                message: "Habit does not exist.",
+              },
+            };
+          }
+
+          const submitted = submitTask(state.taskBook, {
+            taskId,
+            submissionId: randomUUID(),
+            submittedAt: completedAt,
+          });
+
+          if (!submitted.ok) {
+            return submitted;
+          }
+
+          const confirmed = confirmTaskSubmission(submitted.value.taskBook, state.redFlowers, {
+            submissionId: submitted.value.submission.id,
+            confirmedAt: completedAt,
+            ledgerEntryId: randomUUID(),
+            flowerKind: chooseFlowerKind(submitted.value.submission.id),
+          });
+
+          if (!confirmed.ok) {
+            return confirmed;
+          }
+
+          await saveTaskBookAndRedFlowers(tx, {
+            taskBook: confirmed.value.taskBook,
+            redFlowers: confirmed.value.redFlowers,
+          });
+
+          return confirmed;
+        });
+      } catch (error) {
+        if (isDuplicateTaskCompletionPersistenceError(error)) {
+          return reply.code(400).send({
+            error: {
+              code: "TASK_ALREADY_CONFIRMED",
+              message: "Task has already been completed for this day.",
+            },
+          });
+        }
+
+        throw error;
+      }
+
+      if (!result.ok) {
+        return reply.code(400).send({ error: result.error });
+      }
+
+      return {
+        submission: result.value.submission,
+        state: await loadDomainState(app.prisma),
+      };
+    },
+  );
 
   app.post<{ Params: { id: string }; Body: UpdateHistoryTaskSubmissionBody }>(
     "/api/parent/history/task-submissions/:id",

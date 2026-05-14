@@ -260,6 +260,19 @@ export function confirmTasks(config: ApiConfig, submissionIds: string[]): Promis
   });
 }
 
+export function backfillHabitCheckin(
+  config: ApiConfig,
+  input: { taskId: string; completionDate: string },
+): Promise<{ submission: TaskSubmissionState; state: PrototypeState }> {
+  return request<{ submission: TaskSubmissionState; state: PrototypeState }>({
+    config,
+    path: "/api/parent/habit-checkins/backfill",
+    method: "POST",
+    tokenKind: "parent",
+    data: input,
+  });
+}
+
 export function requestWish(config: ApiConfig, wishId: string): Promise<{ state: PrototypeState }> {
   return request<{ state: PrototypeState }>({
     config,

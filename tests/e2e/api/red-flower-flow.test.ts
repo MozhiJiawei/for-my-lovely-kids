@@ -25,6 +25,14 @@ const fixtureHistory = {
   ledgerEntries: 36,
 };
 
+function businessDayKey(value: Date | string): string {
+  return new Date(new Date(value).getTime() + 8 * 60 * 60 * 1000).toISOString().slice(0, 10);
+}
+
+function daysAgoBusinessKey(daysAgo: number): string {
+  return businessDayKey(new Date(Date.now() - daysAgo * 24 * 60 * 60 * 1000));
+}
+
 let tempDir: string;
 let prisma: PrismaClient | undefined;
 
@@ -1042,6 +1050,233 @@ describe("red flower API flow", () => {
       kind: "repeating",
       status: "active",
     });
+    await expect(getPrisma().taskSubmission.count()).resolves.toBe(
+      fixtureHistory.taskSubmissions + 1,
+    );
+    await expect(getPrisma().redFlowerLedgerEntry.count()).resolves.toBe(
+      fixtureHistory.ledgerEntries + 1,
+    );
+
+    await app.close();
+  });
+
+  it("lets parents backfill habit check-ins within the last month", async () => {
+    const app = buildApp({ prisma: getPrisma() });
+    await app.ready();
+
+    await app.inject({
+      method: "POST",
+      url: "/__test/reset",
+    });
+    const taskId = await createManagedTask(app, {
+      title: "补录练琴",
+      flowerValue: 3,
+      kind: "repeating",
+    });
+    const completionDate = daysAgoBusinessKey(2);
+
+    const backfilled = await app.inject({
+      method: "POST",
+      url: "/api/parent/habit-checkins/backfill",
+      headers: parentHeaders,
+      payload: {
+        taskId,
+        completionDate,
+      },
+    });
+
+    expect(backfilled.statusCode).toBe(200);
+    expect(backfilled.json()).toMatchObject({
+      submission: {
+        taskId,
+        titleSnapshot: "补录练琴",
+        flowerValueSnapshot: 3,
+        status: "confirmed",
+      },
+      state: {
+        redFlowers: {
+          balance: {
+            available: fixtureHistory.availableFlowers + 3,
+            cumulative: fixtureHistory.cumulativeFlowers + 3,
+          },
+        },
+      },
+    });
+    expect(businessDayKey(backfilled.json().submission.confirmedAt as string)).toBe(
+      completionDate,
+    );
+
+    const submissionId = backfilled.json().submission.id as string;
+    await expect(
+      getPrisma().taskSubmission.findUniqueOrThrow({ where: { id: submissionId } }),
+    ).resolves.toMatchObject({
+      taskId,
+      status: "confirmed",
+      completionKey: `repeating:${taskId}:${completionDate}`,
+    });
+    await expect(
+      getPrisma().redFlowerLedgerEntry.findFirstOrThrow({
+        where: { sourceId: submissionId, type: "task_confirmed" },
+      }),
+    ).resolves.toMatchObject({
+      deltaAvailable: 3,
+      deltaCumulative: 3,
+      flowerKind: expect.stringMatching(/^(coral|sunny|berry|sky)$/),
+    });
+
+    await app.close();
+  });
+
+  it("lets parents backfill multiple habit check-in dates", async () => {
+    const app = buildApp({ prisma: getPrisma() });
+    await app.ready();
+
+    await app.inject({
+      method: "POST",
+      url: "/__test/reset",
+    });
+    const taskId = await createManagedTask(app, {
+      title: "补录多天阅读",
+      flowerValue: 4,
+      kind: "repeating",
+    });
+    const completionDates = [daysAgoBusinessKey(3), daysAgoBusinessKey(2), daysAgoBusinessKey(1)];
+
+    for (const completionDate of completionDates) {
+      const response = await app.inject({
+        method: "POST",
+        url: "/api/parent/habit-checkins/backfill",
+        headers: parentHeaders,
+        payload: {
+          taskId,
+          completionDate,
+        },
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(businessDayKey(response.json().submission.confirmedAt as string)).toBe(
+        completionDate,
+      );
+    }
+
+    await expect(
+      getPrisma().taskSubmission.count({
+        where: { taskId, status: "confirmed" },
+      }),
+    ).resolves.toBe(3);
+    await expect(
+      getPrisma().redFlowerLedgerEntry.count({
+        where: { type: "task_confirmed" },
+      }),
+    ).resolves.toBe(fixtureHistory.ledgerEntries - fixtureHistory.wishRedemptions + 3);
+    await expect(
+      getPrisma().redFlowerBalance.findUniqueOrThrow({
+        where: { id: "default-red-flower-balance" },
+      }),
+    ).resolves.toMatchObject({
+      available: fixtureHistory.availableFlowers + 12,
+      cumulative: fixtureHistory.cumulativeFlowers + 12,
+    });
+
+    await app.close();
+  });
+
+  it("rejects invalid habit check-in backfills without partial rewards", async () => {
+    const app = buildApp({ prisma: getPrisma() });
+    await app.ready();
+
+    await app.inject({
+      method: "POST",
+      url: "/__test/reset",
+    });
+    const habitId = await createManagedTask(app, {
+      title: "补录跳绳",
+      flowerValue: 2,
+      kind: "repeating",
+    });
+    const goalId = await createManagedTask(app, {
+      title: "补录目标",
+      flowerValue: 5,
+      kind: "one_time",
+    });
+    const completionDate = daysAgoBusinessKey(1);
+
+    const first = await app.inject({
+      method: "POST",
+      url: "/api/parent/habit-checkins/backfill",
+      headers: parentHeaders,
+      payload: {
+        taskId: habitId,
+        completionDate,
+      },
+    });
+    const duplicate = await app.inject({
+      method: "POST",
+      url: "/api/parent/habit-checkins/backfill",
+      headers: parentHeaders,
+      payload: {
+        taskId: habitId,
+        completionDate,
+      },
+    });
+    const oldDate = await app.inject({
+      method: "POST",
+      url: "/api/parent/habit-checkins/backfill",
+      headers: parentHeaders,
+      payload: {
+        taskId: habitId,
+        completionDate: daysAgoBusinessKey(45),
+      },
+    });
+    const today = await app.inject({
+      method: "POST",
+      url: "/api/parent/habit-checkins/backfill",
+      headers: parentHeaders,
+      payload: {
+        taskId: habitId,
+        completionDate: businessDayKey(new Date()),
+      },
+    });
+    const oneTimeGoal = await app.inject({
+      method: "POST",
+      url: "/api/parent/habit-checkins/backfill",
+      headers: parentHeaders,
+      payload: {
+        taskId: goalId,
+        completionDate,
+      },
+    });
+
+    expect(first.statusCode).toBe(200);
+    expect(duplicate.statusCode).toBe(400);
+    expect(duplicate.json()).toEqual({
+      error: {
+        code: "TASK_ALREADY_CONFIRMED",
+        message: "Task has already been completed for this day.",
+      },
+    });
+    expect(oldDate.statusCode).toBe(400);
+    expect(oldDate.json()).toEqual({
+      error: {
+        code: "HABIT_BACKFILL_DATE_OUT_OF_RANGE",
+        message: "Habit check-ins can only be backfilled within the last month.",
+      },
+    });
+    expect(today.statusCode).toBe(400);
+    expect(today.json()).toEqual({
+      error: {
+        code: "HABIT_BACKFILL_DATE_OUT_OF_RANGE",
+        message: "Habit check-ins can only be backfilled within the last month.",
+      },
+    });
+    expect(oneTimeGoal.statusCode).toBe(400);
+    expect(oneTimeGoal.json()).toEqual({
+      error: {
+        code: "HABIT_NOT_FOUND",
+        message: "Habit does not exist.",
+      },
+    });
+
     await expect(getPrisma().taskSubmission.count()).resolves.toBe(
       fixtureHistory.taskSubmissions + 1,
     );

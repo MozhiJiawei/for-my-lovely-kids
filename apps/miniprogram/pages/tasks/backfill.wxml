@@ -1,0 +1,88 @@
+<view class="page">
+  <view class="sheet">
+    <view class="sheet-nav">
+      <view class="nav-action" bindtap="cancel">取消</view>
+      <view wx:if="{{parentControlReady}}" class="nav-action" bindtap="saveBackfill">保存</view>
+    </view>
+
+    <view class="eyebrow">习惯补录</view>
+    <view class="title">{{title}}</view>
+    <view class="meta-row">
+      <view class="meta-pill">{{flowerValue}} 朵</view>
+      <view class="meta-pill">最近 1 个月</view>
+    </view>
+    <view class="message">{{message}}</view>
+
+    <block wx:if="{{parentControlReady}}">
+      <view class="field">
+        <view class="field-row">
+          <view class="field-label">补录日期</view>
+          <view class="selected-summary">{{selectedCount}} 天 · {{selectedFlowerTotal}} 朵</view>
+        </view>
+        <view class="calendar-card">
+          <view class="month-nav">
+            <view
+              class="month-button {{canPreviousMonth ? '' : 'month-button-disabled'}}"
+              bindtap="previousMonth"
+            >
+              ‹
+            </view>
+            <view class="month-label">{{monthLabel}}</view>
+            <view
+              class="month-button {{canNextMonth ? '' : 'month-button-disabled'}}"
+              bindtap="nextMonth"
+            >
+              ›
+            </view>
+          </view>
+
+          <view class="weekday-row">
+            <view>日</view>
+            <view>一</view>
+            <view>二</view>
+            <view>三</view>
+            <view>四</view>
+            <view>五</view>
+            <view>六</view>
+          </view>
+
+          <view class="calendar-grid">
+            <view
+              wx:for="{{calendarDays}}"
+              wx:key="key"
+              data-key="{{item.key}}"
+              bindtap="toggleDate"
+              class="day-cell {{item.stateClass}}"
+            >
+              <text wx:if="{{!item.isBlank}}">{{item.day}}</text>
+            </view>
+          </view>
+        </view>
+      </view>
+
+      <view class="calendar-legend">
+        <view class="legend-item">
+          <view class="legend-swatch checkin-swatch"></view>
+          <text>已打卡</text>
+        </view>
+        <view class="legend-item">
+          <view class="legend-swatch available-swatch"></view>
+          <text>可补录</text>
+        </view>
+        <view class="legend-item">
+          <view class="legend-swatch selected-swatch"></view>
+          <text>已选择</text>
+        </view>
+      </view>
+
+      <view class="hint-panel">
+        <view class="hint-title">补录范围</view>
+        <view class="hint-line">可多选，只能补录 {{minDate}} 到 {{maxDate}} 之间的习惯打卡。</view>
+        <view class="hint-line">黄色日期已经打卡，不能重复补录；范围外日期会隐藏或置灰。</view>
+      </view>
+
+      <button class="save-button" loading="{{loading}}" bindtap="saveBackfill">保存补录</button>
+    </block>
+  </view>
+  <parent-control-panel id="parentControl" />
+</view>

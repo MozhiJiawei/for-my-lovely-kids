@@ -766,6 +766,12 @@ page {
   font-weight: 900;
 }
 
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 10rpx;
+}
+
 .parent-settings-button {
   display: flex;
   align-items: center;

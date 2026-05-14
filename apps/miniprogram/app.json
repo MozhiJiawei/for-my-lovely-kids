@@ -3,6 +3,7 @@
     "pages/garden-design/index",
     "pages/tasks/index",
     "pages/tasks/edit",
+    "pages/tasks/backfill",
     "pages/tasks/detail",
     "pages/wishes/index",
     "pages/wishes/edit",

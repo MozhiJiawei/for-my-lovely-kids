@@ -44,6 +44,7 @@
               </view>
             </view>
             <view class="task-actions">
+              <view class="backfill-action" data-id="{{item.id}}" catchtap="openBackfill">补录</view>
               <view class="icon-action" data-id="{{item.id}}" catchtap="editTask">编辑</view>
             </view>
           </view>

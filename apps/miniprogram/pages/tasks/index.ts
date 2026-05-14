@@ -186,6 +186,28 @@ Page({
     });
   },
 
+  async openBackfill(event: WechatMiniprogram.TouchEvent) {
+    const taskId = String(event.currentTarget.dataset.id ?? "");
+    const task = this.data.habits.find((candidate) => candidate.id === taskId);
+
+    if (!task) {
+      return;
+    }
+
+    const allowed = await this.requireParentControl("补录习惯打卡需要家长确认。");
+
+    if (!allowed) {
+      this.setData({
+        message: "已取消家长确认，习惯打卡没有补录。",
+      });
+      return;
+    }
+
+    wx.navigateTo({
+      url: `/pages/tasks/backfill?id=${encodeURIComponent(taskId)}`,
+    });
+  },
+
   touchTaskStart(event: WechatMiniprogram.TouchEvent) {
     touchStartX = event.touches[0]?.clientX ?? 0;
     touchTaskId = String(event.currentTarget.dataset.id ?? "");

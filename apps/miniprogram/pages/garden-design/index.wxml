@@ -77,7 +77,10 @@
   <view class="task-section">
     <view class="task-section-header">
       <view class="task-section-title">今日任务</view>
-      <view class="parent-settings-button" bindtap="openParentSettings">家长设置</view>
+      <view class="header-actions">
+        <view wx:if="{{showDevTools}}" class="dev-tools-link" bindtap="openDevTools">调测</view>
+        <view class="parent-settings-button" bindtap="openParentSettings">家长设置</view>
+      </view>
     </view>
     <view class="task-tabs">
       <view

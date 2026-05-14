@@ -1,5 +1,9 @@
 import { loadState, submitTask, type PrototypeState } from "../../src/api/client";
-import { getConfiguredApiBaseUrl, getPrototypeApiConfig } from "../../src/config/api";
+import {
+  getConfiguredApiBaseUrl,
+  getPrototypeApiConfig,
+  isPrototypeToolsVisible,
+} from "../../src/config/api";
 import {
   hasParentPasscode,
   isParentControlUnlocked,
@@ -64,6 +68,7 @@ type GardenDesignData = {
   passcodeError: string;
   passcodeKeys: string[];
   passcodeSlots: number[];
+  showDevTools: boolean;
 };
 
 const maxVisibleFlowers = 10;
@@ -389,6 +394,7 @@ const initialData: GardenDesignData = {
   passcodeError: "",
   passcodeKeys,
   passcodeSlots,
+  showDevTools: isPrototypeToolsVisible(),
 };
 
 let latestRefreshRequest = 0;
@@ -462,6 +468,12 @@ Page({
       parentControlTitle: buildParentControlTitle(parentControlMode),
       passcodeDigits: "",
       passcodeError: "先输入当前家长密码。",
+    });
+  },
+
+  openDevTools() {
+    wx.navigateTo({
+      url: "/pages/prototype/index",
     });
   },
 
