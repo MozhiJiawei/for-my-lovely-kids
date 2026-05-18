@@ -1,4 +1,4 @@
-<view class="page">
+<view class="page" bindtap="closeDeleteActions">
   <view class="hero">
     <view class="sky">
       <view class="sun"></view>
@@ -13,7 +13,7 @@
         <view class="eyebrow">心愿管理</view>
         <view class="title">心愿泡泡</view>
       </view>
-      <view class="add-button" bindtap="openCreateEditor">+</view>
+      <view class="add-button" catchtap="openCreateEditor">+</view>
     </view>
 
     <view class="flower-pill">可用小红花 {{availableFlowers}} 朵</view>
@@ -23,29 +23,38 @@
   <view class="section">
     <view class="section-title">当前心愿</view>
     <view wx:if="{{wishes.length === 0}}" class="empty">还没有心愿。</view>
-    <view wx:for="{{wishes}}" wx:key="id" class="wish-card">
-      <view class="wish-icon" data-id="{{item.id}}" bindtap="openDetail">
-        <image wx:if="{{item.imageUrl}}" class="wish-thumb" src="{{item.imageUrl}}" mode="aspectFill"></image>
-        <text wx:else>愿</text>
-      </view>
-      <view class="wish-main" data-id="{{item.id}}" bindtap="openDetail">
-        <view class="wish-title">{{item.title}}</view>
-        <view class="wish-meta">
-          {{item.flowerCost}} 朵 · {{item.kindText}} · {{item.pinned ? "首页泡泡" : "自动排序"}}
+    <view wx:for="{{wishes}}" wx:key="id" class="swipe-row">
+      <view class="delete-action" data-id="{{item.id}}" catchtap="deleteWish">删除</view>
+      <view
+        class="wish-card {{item.deleteOpen ? 'wish-card-open' : ''}}"
+        data-id="{{item.id}}"
+        catchtap="noop"
+        bindtouchstart="touchWishStart"
+        bindtouchend="touchWishEnd"
+      >
+        <view class="wish-icon" data-id="{{item.id}}" catchtap="openDetail">
+          <image wx:if="{{item.imageUrl}}" class="wish-thumb" src="{{item.imageUrl}}" mode="aspectFill"></image>
+          <text wx:else>愿</text>
         </view>
-        <view wx:if="{{item.hasLink || item.hasDescription}}" class="wish-tags">
-          <text wx:if="{{item.hasDescription}}" class="wish-tag">描述</text>
-          <text wx:if="{{item.hasLink}}" class="wish-tag">链接</text>
+        <view class="wish-main" data-id="{{item.id}}" catchtap="openDetail">
+          <view class="wish-title">{{item.title}}</view>
+          <view class="wish-meta">
+            {{item.flowerCost}} 朵 · {{item.kindText}} · {{item.pinned ? "首页泡泡" : "自动排序"}}
+          </view>
+          <view wx:if="{{item.hasLink || item.hasDescription}}" class="wish-tags">
+            <text wx:if="{{item.hasDescription}}" class="wish-tag">描述</text>
+            <text wx:if="{{item.hasLink}}" class="wish-tag">链接</text>
+          </view>
         </view>
-      </view>
-      <view class="wish-actions">
-        <view class="icon-action" data-id="{{item.id}}" bindtap="editWish">改</view>
-        <view
-          class="redeem-action {{item.enough ? '' : 'redeem-disabled'}}"
-          data-id="{{item.id}}"
-          bindtap="redeemWish"
-        >
-          兑
+        <view class="wish-actions">
+          <view class="icon-action" data-id="{{item.id}}" catchtap="editWish">改</view>
+          <view
+            class="redeem-action {{item.enough ? '' : 'redeem-disabled'}}"
+            data-id="{{item.id}}"
+            catchtap="redeemWish"
+          >
+            兑
+          </view>
         </view>
       </view>
     </view>

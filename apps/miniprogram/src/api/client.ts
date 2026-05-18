@@ -220,6 +220,16 @@ export function updateWish(
   });
 }
 
+export function deleteWish(config: ApiConfig, wishId: string): Promise<{ state: PrototypeState }> {
+  return request<{ state: PrototypeState }>({
+    config,
+    path: `/api/parent/wishes/${wishId}/delete`,
+    method: "POST",
+    tokenKind: "parent",
+    data: {},
+  });
+}
+
 export function createWishImageUploadPolicy(
   config: ApiConfig,
   input: { fileName: string; contentType: string },

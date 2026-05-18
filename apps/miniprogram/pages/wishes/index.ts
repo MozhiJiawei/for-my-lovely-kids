@@ -1,4 +1,4 @@
-﻿import { loadState, redeemWish, type PrototypeState } from "../../src/api/client";
+﻿import { deleteWish, loadState, redeemWish, type PrototypeState } from "../../src/api/client";
 import { getPrototypeApiConfig } from "../../src/config/api";
 
 type WishKind = "repeating" | "one_time";
@@ -18,6 +18,7 @@ type WishListItem = {
   hasDescription: boolean;
   statusText: string;
   enough: boolean;
+  deleteOpen: boolean;
 };
 
 type WishesData = {
@@ -35,12 +36,18 @@ const initialData: WishesData = {
 };
 
 let latestRefreshRequest = 0;
+let touchStartX = 0;
+let touchWishId = "";
 
 function kindText(kind: WishKind): string {
   return kind === "repeating" ? "可重复" : "一次性";
 }
 
-function activeWishes(state: PrototypeState): WishListItem[] {
+function activeWishes(state: PrototypeState, currentWishes: WishListItem[]): WishListItem[] {
+  const openDeleteIds = new Set(
+    currentWishes.filter((wish) => wish.deleteOpen).map((wish) => wish.id),
+  );
+
   return state.wishBook.wishes
     .filter((wish) => wish.status === "active" || wish.status === "test")
     .map((wish) => ({
@@ -55,14 +62,25 @@ function activeWishes(state: PrototypeState): WishListItem[] {
       hasDescription: !!wish.description,
       statusText: wish.status === "archived" ? "已实现" : "可兑换",
       enough: state.redFlowers.balance.available >= wish.flowerCost,
+      deleteOpen: openDeleteIds.has(wish.id),
     }));
 }
 
-function deriveDataFromState(state: PrototypeState): Partial<WishesData> {
+function deriveDataFromState(
+  state: PrototypeState,
+  currentWishes: WishListItem[],
+): Partial<WishesData> {
   return {
     availableFlowers: state.redFlowers.balance.available,
-    wishes: activeWishes(state),
+    wishes: activeWishes(state, currentWishes),
   };
+}
+
+function closeDeleteForWishes(wishes: WishListItem[]): WishListItem[] {
+  return wishes.map((wish) => ({
+    ...wish,
+    deleteOpen: false,
+  }));
 }
 
 Page({
@@ -89,7 +107,7 @@ Page({
       }
 
       this.setData({
-        ...deriveDataFromState(state),
+        ...deriveDataFromState(state, closeDeleteForWishes(this.data.wishes)),
         loading: false,
         message: "心愿已经准备好。",
       });
@@ -103,6 +121,10 @@ Page({
         message: "暂时读不到心愿。",
       });
     }
+  },
+
+  noop() {
+    return;
   },
 
   async openCreateEditor() {
@@ -175,7 +197,7 @@ Page({
       const response = await redeemWish(getPrototypeApiConfig(), wishId);
 
       this.setData({
-        ...deriveDataFromState(response.state),
+        ...deriveDataFromState(response.state, []),
         loading: false,
         message: "心愿实现啦。",
       });
@@ -183,6 +205,87 @@ Page({
       this.setData({
         loading: false,
         message: error instanceof Error ? error.message : "兑换失败。",
+      });
+    }
+  },
+
+  touchWishStart(event: WechatMiniprogram.TouchEvent) {
+    touchStartX = event.touches[0]?.clientX ?? 0;
+    touchWishId = String(event.currentTarget.dataset.id ?? "");
+  },
+
+  touchWishEnd(event: WechatMiniprogram.TouchEvent) {
+    const endX = event.changedTouches[0]?.clientX ?? touchStartX;
+    const deltaX = endX - touchStartX;
+
+    if (!touchWishId || Math.abs(deltaX) < 36) {
+      return;
+    }
+
+    const shouldOpen = deltaX < 0;
+    this.setData({
+      wishes: this.data.wishes.map((wish) => ({
+        ...wish,
+        deleteOpen: wish.id === touchWishId ? shouldOpen : false,
+      })),
+    });
+  },
+
+  closeDeleteActions() {
+    this.setData({
+      wishes: closeDeleteForWishes(this.data.wishes),
+    });
+  },
+
+  async deleteWish(event: WechatMiniprogram.TouchEvent) {
+    const wishId = String(event.currentTarget.dataset.id ?? "");
+    const wish = this.data.wishes.find((candidate) => candidate.id === wishId);
+
+    if (!wish) {
+      return;
+    }
+
+    const allowed = await this.requireParentControl("删除心愿需要家长确认。");
+
+    if (!allowed) {
+      this.setData({
+        message: "已取消家长确认，心愿没有变化。",
+      });
+      return;
+    }
+
+    wx.showModal({
+      title: "删除心愿",
+      content: `删除「${wish.title}」后，历史兑换记录会保留。`,
+      confirmText: "删除",
+      confirmColor: "#e24b45",
+      success: (result) => {
+        if (result.confirm) {
+          void this.archiveWish(wishId);
+        }
+      },
+    });
+  },
+
+  async archiveWish(wishId: string) {
+    latestRefreshRequest += 1;
+    this.setData({
+      loading: true,
+      message: "正在删除心愿。",
+    });
+
+    try {
+      const response = await deleteWish(getPrototypeApiConfig(), wishId);
+
+      this.setData({
+        ...deriveDataFromState(response.state, []),
+        loading: false,
+        message: "心愿已删除，历史记录还在。",
+      });
+    } catch (error) {
+      this.setData({
+        loading: false,
+        message: error instanceof Error ? error.message : "删除失败。",
       });
     }
   },

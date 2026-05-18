@@ -314,6 +314,85 @@ describe("red flower API flow", () => {
     await app.close();
   });
 
+  it("archives wish deletion through the API while keeping redemption history", async () => {
+    const app = buildApp({ prisma: getPrisma() });
+    await app.ready();
+
+    await app.inject({
+      method: "POST",
+      url: "/__test/reset",
+    });
+
+    const wishId = await createManagedWish(app, {
+      title: "周末一次家庭电影夜",
+      flowerCost: 5,
+      kind: "repeating",
+      pinned: true,
+    });
+
+    const redeemed = await app.inject({
+      method: "POST",
+      url: "/api/child/wish-redemptions/redeem",
+      headers: familyHeaders,
+      payload: { wishId },
+    });
+
+    expect(redeemed.statusCode).toBe(200);
+    const redemptionId = redeemed.json().redemption.id as string;
+
+    const deleted = await app.inject({
+      method: "POST",
+      url: `/api/parent/wishes/${wishId}/delete`,
+      headers: parentHeaders,
+    });
+
+    expect(deleted.statusCode).toBe(200);
+    expect(deleted.json()).toMatchObject({
+      wish: {
+        id: wishId,
+        pinned: false,
+        status: "archived",
+      },
+      state: {
+        wishBook: {
+          wishes: expect.arrayContaining([
+            expect.objectContaining({
+              id: wishId,
+              title: "周末一次家庭电影夜",
+              pinned: false,
+              status: "archived",
+            }),
+          ]),
+          redemptions: expect.arrayContaining([
+            expect.objectContaining({
+              id: redemptionId,
+              wishId,
+              titleSnapshot: "周末一次家庭电影夜",
+              status: "approved",
+            }),
+          ]),
+        },
+      },
+    });
+
+    await expect(
+      getPrisma().wish.findUniqueOrThrow({
+        where: { id: wishId },
+      }),
+    ).resolves.toMatchObject({
+      title: "周末一次家庭电影夜",
+      pinned: false,
+      status: "archived",
+    });
+    await expect(
+      getPrisma().wishRedemption.count({
+        where: { wishId },
+      }),
+    ).resolves.toBe(1);
+
+    await app.close();
+  });
+
   it("creates a parent-only Aliyun OSS upload policy for wish images", async () => {
     process.env.ALIYUN_OSS_ACCESS_KEY_ID = "test-access-key";
     process.env.ALIYUN_OSS_ACCESS_KEY_SECRET = "test-secret";

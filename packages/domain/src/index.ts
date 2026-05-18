@@ -40,6 +40,7 @@ export {
   updateTask,
 } from "./tasks";
 export type {
+  ArchiveWishInput,
   ApproveWishRedemptionInput,
   ApproveWishRedemptionValue,
   CreateWishInput,
@@ -52,7 +53,13 @@ export type {
   WishRedemptionStatus,
   WishStatus,
 } from "./wishes";
-export { approveWishRedemption, createWish, requestWishRedemption, updateWish } from "./wishes";
+export {
+  approveWishRedemption,
+  archiveWish,
+  createWish,
+  requestWishRedemption,
+  updateWish,
+} from "./wishes";
 
 export function getDomainSmokeMessage(): string {
   return "red-flower-domain-ready";

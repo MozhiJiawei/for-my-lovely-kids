@@ -61,6 +61,11 @@ export type UpdateWishInput = {
   updatedAt: string;
 };
 
+export type ArchiveWishInput = {
+  wishId: string;
+  archivedAt: string;
+};
+
 export type RequestWishRedemptionInput = {
   wishId: string;
   redemptionId: string;
@@ -165,6 +170,41 @@ export function updateWish(
       ),
     },
     wish: updatedWish,
+  });
+}
+
+export function archiveWish(
+  wishBook: WishBook,
+  input: ArchiveWishInput,
+): DomainResult<{
+  wishBook: WishBook;
+  wish: Wish;
+}> {
+  const wish = wishBook.wishes.find((candidate) => candidate.id === input.wishId);
+
+  if (!wish) {
+    return domainError("WISH_NOT_FOUND", "Wish does not exist.");
+  }
+
+  if (wish.status === "archived") {
+    return domainError("WISH_ALREADY_ARCHIVED", "Wish has already been deleted.");
+  }
+
+  const archivedWish: Wish = {
+    ...wish,
+    pinned: false,
+    status: "archived",
+    updatedAt: input.archivedAt,
+  };
+
+  return domainOk({
+    wishBook: {
+      ...wishBook,
+      wishes: wishBook.wishes.map((candidate) =>
+        candidate.id === archivedWish.id ? archivedWish : candidate,
+      ),
+    },
+    wish: archivedWish,
   });
 }
 

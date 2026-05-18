@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 
 import {
+  archiveWish,
   archiveTask,
   approveWishRedemption,
   confirmTaskSubmission,
@@ -394,6 +395,39 @@ export async function registerParentRoutes(app: FastifyInstance): Promise<void> 
       };
     },
   );
+
+  app.post<{ Params: { id: string } }>("/api/parent/wishes/:id/delete", async (request, reply) => {
+    if (!assertPrototypeAuth(request, reply, "parent")) {
+      return;
+    }
+
+    const now = new Date().toISOString();
+
+    const result = await app.prisma.$transaction(async (tx) => {
+      const state = await loadDomainState(tx);
+      const next = archiveWish(state.wishBook, {
+        wishId: request.params.id,
+        archivedAt: now,
+      });
+
+      if (!next.ok) {
+        return next;
+      }
+
+      await saveWishBook(tx, next.value.wishBook);
+
+      return next;
+    });
+
+    if (!result.ok) {
+      return reply.code(400).send({ error: result.error });
+    }
+
+    return {
+      wish: result.value.wish,
+      state: await loadDomainState(app.prisma),
+    };
+  });
 
   app.post<{ Body: CreateWishImageUploadBody }>(
     "/api/parent/wish-image-uploads",

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  archiveWish,
   approveWishRedemption,
   confirmTaskSubmission,
   createEmptyRedFlowerAccount,
@@ -500,6 +501,46 @@ describe("red flower domain rules", () => {
       pinned: false,
       status: "archived",
       updatedAt: "2026-04-25T11:00:00.000Z",
+    });
+  });
+
+  it("archives a wish for deletion and removes it from pinned bubbles", () => {
+    const archived = expectOk(
+      archiveWish(createWishBook(), {
+        wishId: "wish-carousel",
+        archivedAt: "2026-04-25T12:00:00.000Z",
+      }),
+    );
+
+    expect(archived.wish).toMatchObject({
+      id: "wish-carousel",
+      pinned: false,
+      status: "archived",
+      updatedAt: "2026-04-25T12:00:00.000Z",
+    });
+    expect(archived.wishBook.wishes.find((wish) => wish.id === "wish-ice-cream")).toMatchObject({
+      status: "active",
+    });
+  });
+
+  it("rejects deleting an already archived wish", () => {
+    const archived = expectOk(
+      archiveWish(createWishBook(), {
+        wishId: "wish-carousel",
+        archivedAt: "2026-04-25T12:00:00.000Z",
+      }),
+    );
+
+    expect(
+      archiveWish(archived.wishBook, {
+        wishId: "wish-carousel",
+        archivedAt: "2026-04-25T12:01:00.000Z",
+      }),
+    ).toEqual({
+      ok: false,
+      error: expect.objectContaining({
+        code: "WISH_ALREADY_ARCHIVED",
+      }),
     });
   });
 
